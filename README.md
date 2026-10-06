@@ -4,6 +4,7 @@ The application uses a Rails web interface, a Hanami API, Python Excel and sched
 
 Build custom images on a workstation, push them to Docker Hub, then run the server from those images. The server needs Docker, the Compose plugin, Python 3 and a clone of this main repository; it does not need application source, Ruby, Node.js or a compiler.
 
+- [Docker Hub publishing guide](deploy/DOCKERHUB_GUIDE.md): login, builds, pushes, verification and release tags.
 - [Deployment guide](deploy/DEPLOYMENT_GUIDE.md): building, publishing, first installation, environment configuration, updates, backups and rollback.
 - [Discovery and network policy](deploy/SERVICE_DISCOVERY.md).
 - [Optional monitoring](deploy/observability/README.md).

@@ -4,6 +4,8 @@ The development PC builds and publishes images. The separate Linux server clones
 
 The archive packaging script is optional. The standard procedure below uses a Git checkout of the main repository.
 
+For detailed image publishing instructions, see [DOCKERHUB_GUIDE.md](DOCKERHUB_GUIDE.md).
+
 ## 1. Publish the release from the development PC
 
 Run these commands on the development PC in the complete source workspace:
