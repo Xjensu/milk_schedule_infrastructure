@@ -2,6 +2,8 @@
 
 The development PC builds and publishes images. The separate Linux server clones the main GitHub repository, reads `.env.local`, pulls those images and runs the application. No image builds run on the server, and no host IP entry is required.
 
+MinIO uses a pinned `linux/amd64` mirror in `xjensu/table-minio`; its original Quay reference rejects unauthenticated pulls. The mirror contains the same MinIO image used by this release. `MINIO_IMAGE` can override the reference in `.env.local`.
+
 The archive packaging script is optional. The standard procedure below uses a Git checkout of the main repository.
 
 For detailed image publishing instructions, see [DOCKERHUB_GUIDE.md](DOCKERHUB_GUIDE.md).
