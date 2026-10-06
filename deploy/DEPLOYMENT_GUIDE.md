@@ -180,6 +180,64 @@ The `/ops/` console uses its own credentials and exposes allowlisted Hanami data
 
 Public pages are reachable through router forwarding. Administrator/login routes and `/ops/` remain LAN-restricted by default. Use the LAN or a deliberately configured VPN for administration. The current ingress is HTTP and does not encrypt credentials.
 
+### Sign in through localhost on the Docker host
+
+Public pages work at `http://localhost`, but local login can return **403** with the default LAN policy. Docker presents host requests to Nginx as the Docker bridge gateway, which is outside the detected LAN subnet. This is an ingress denial before the application checks the password.
+
+You can sign in through the automatically detected LAN address instead. To print it without reading secrets:
+
+```bash
+python3 -c 'import json; print("http://" + json.load(open("deploy/generated/network.json"))["address"] + "/admin/")'
+```
+
+If you need login at `http://localhost`, run this after starting the application, from the deployment directory. It detects the edge network gateway and adds only that host address (`/32`) to the existing administrator allowlist in the private `.env.local`. No machine IP needs to be entered manually.
+
+```bash
+python3 - <<'PYCODE'
+import json
+import re
+import subprocess
+from pathlib import Path
+
+container_id = subprocess.check_output(
+    ["./deploy/bin/compose.sh", "ps", "-q", "nginx"], text=True
+).strip()
+if not container_id:
+    raise SystemExit("Start Nginx before configuring localhost access.")
+container = json.loads(subprocess.check_output(
+    ["docker", "inspect", container_id], text=True
+))[0]
+gateways = {
+    network["Gateway"]
+    for name, network in container["NetworkSettings"]["Networks"].items()
+    if name.endswith("_edge") and network["Gateway"]
+}
+if len(gateways) != 1:
+    raise SystemExit("Could not identify a unique edge network gateway.")
+cidrs = json.loads(Path("deploy/generated/network.json").read_text())["cidrs"]
+cidrs = list(dict.fromkeys([*cidrs, next(iter(gateways)) + "/32"]))
+env_path = Path(".env.local")
+settings = env_path.read_text()
+if not re.search(r"^ADMIN_LAN_CIDRS=", settings, re.M):
+    raise SystemExit("Add the ADMIN_LAN_CIDRS setting from .env.example first.")
+settings = re.sub(
+    r"^ADMIN_LAN_CIDRS=.*$",
+    "ADMIN_LAN_CIDRS=" + ",".join(cidrs),
+    settings,
+    flags=re.M,
+)
+env_path.write_text(settings)
+print("Configured localhost access; credentials were not printed.")
+PYCODE
+python3 deploy/bin/prepare-discovery.py
+./deploy/bin/compose.sh exec -T nginx nginx -t
+./deploy/bin/compose.sh exec -T nginx nginx -s reload
+```
+
+Allow a moment for Nginx to reload, refresh `http://localhost`, and sign in using `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from `.env.local`. A fresh deployment generates a new administrator password; credentials from another deployment will not match. Updating the seed password does not reset an existing account.
+
+This is an optional host-access exception, not a requirement for remote LAN deployment. It also permits that host gateway to reach the other LAN-restricted routes. Do not allow the entire Docker subnet or `0.0.0.0/0`. If the edge network is recreated with a different gateway, remove the old gateway `/32` from `ADMIN_LAN_CIDRS` and repeat these steps. To restore LAN-only access, leave `ADMIN_LAN_CIDRS` blank and rerun preflight and the Nginx reload.
+
 Notice download links currently target MinIO on the detected private address at port 9000. Forwarding website port 80 alone does not make that private storage endpoint reachable from external clients. LAN/VPN downloads can use the default; external downloads require an appropriately secured storage endpoint and `NOTICE_EXPORT_PUBLIC_ENDPOINT` configuration.
 
 Verify schedules, administrator sign-in, an edit/reload, Excel import and notice download. Container health checks do not prove these complete workflows.
@@ -277,7 +335,7 @@ Useful server diagnostics:
 | `exec format error` | Images match the server architecture. |
 | Missing runtime mount | The compatible main repository revision was cloned, including `deploy/` and `schemas/`, and preflight ran. |
 | IP detection fails | Host private IPv4/default route; optional `ADMIN_INTERFACE` for unusual routing. |
-| `/admin/` or `/ops/` returns 403 | Client is on the detected LAN or configured administrator network. |
+| Login, `/admin/` or `/ops/` returns 403 | Client must be on the detected LAN or configured administrator network. For host localhost access, follow the section above. |
 | `/ops/` returns 401 | Its separate credentials and container recreation after changes. |
 | Env edit has no effect | Recreate containers; check shell overrides. |
 | Firewall helper fails | Docker iptables backend and `DOCKER-USER` chain. |
