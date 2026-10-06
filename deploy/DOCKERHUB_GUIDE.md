@@ -1,5 +1,7 @@
 # Build and publish images to Docker Hub
 
+The published release `2026-10-06-1` includes all seven default application images for `linux/amd64`. Its verified Docker Hub digests are recorded in [the release manifest](image-releases/2026-10-06-1.json).
+
 Run image builds and pushes on the development PC. The deployment server pulls the published images. Publishing images does not start/restart the development application or deploy anything to the server.
 
 ## 1. Prepare the build workspace

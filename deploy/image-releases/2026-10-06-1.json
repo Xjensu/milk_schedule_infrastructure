@@ -1,0 +1,40 @@
+{
+  "tag": "2026-10-06-1",
+  "images": [
+    {
+      "image": "xjensu/table-bsut-by:2026-10-06-1",
+      "digest": "sha256:2f79bbdb6166f968e3f7b81e81345f843a77dddc597dd31927e272d11765cc72",
+      "platform": "linux/amd64"
+    },
+    {
+      "image": "xjensu/table-api:2026-10-06-1",
+      "digest": "sha256:8513da19695562fbedc7ca950e6e5d4a955fb8fb3bc88f4f001537c2879e337b",
+      "platform": "linux/amd64"
+    },
+    {
+      "image": "xjensu/excel-processor:2026-10-06-1",
+      "digest": "sha256:b4270082a3fe93b8cf7d87178ae9486131662a1b293f30d49850e332bbceecbc",
+      "platform": "linux/amd64"
+    },
+    {
+      "image": "xjensu/table-scheduler:2026-10-06-1",
+      "digest": "sha256:6f2741a661a2f9ce29a14f5ef16a3e9717af4bb4288151909277d6bd6f76321c",
+      "platform": "linux/amd64"
+    },
+    {
+      "image": "xjensu/table-discovery:2026-10-06-1",
+      "digest": "sha256:2cdabcb21cc2e5a786849747679c1ea06cfdcb1e7f3f74b14e9830c5abdd91f5",
+      "platform": "linux/amd64"
+    },
+    {
+      "image": "xjensu/table-minio-init:2026-10-06-1",
+      "digest": "sha256:d2a80a0b3e52167cb7debdca60d7ed27fe5b81cd1c8f0f7b2edfe6fb60c8f4f0",
+      "platform": "linux/amd64"
+    },
+    {
+      "image": "xjensu/table-edge:2026-10-06-1",
+      "digest": "sha256:e6d54570605469053779f82b8b0c17cc1ded2acee51aa055ee3c1be56a21ffbf",
+      "platform": "linux/amd64"
+    }
+  ]
+}
