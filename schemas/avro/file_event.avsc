@@ -1,0 +1,25 @@
+{
+  "type": "record",
+  "name": "FileEvent",
+  "namespace": "milk_schedule.events",
+  "doc": "Published to Redis channel 'file_events' when an excel/GeoJSON file is uploaded. excel_processor subscribes and triggers data ingestion.",
+  "fields": [
+    {
+      "name": "file_id",
+      "type": "int",
+      "doc": "Primary key of the excel_files row."
+    },
+    {
+      "name": "semester_id",
+      "type": ["null", "int"],
+      "default": null,
+      "doc": "Target semester for scoped ingestion. Null triggers reference-data-only sync."
+    },
+    {
+      "name": "schema_version",
+      "type": "string",
+      "default": "v1",
+      "doc": "Schema version for forward-compatibility checks."
+    }
+  ]
+}

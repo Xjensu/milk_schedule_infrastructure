@@ -1,2 +1,53 @@
+# AI tooling artifacts (not part of the project deliverable)
+CLAUDE.md
+.serena/
+other/
+
+# Rust build artifacts
+/implementation/mesh-milk/target/
+**/*.rs.bk
+Cargo.lock.orig
+
 .env*.local
+.env
 apps/*
+.worktrees/
+!apps/web/
+!apps/bff/
+!apps/scheduler/
+apps/web/node_modules/
+apps/web/dist/
+apps/bff/node_modules/
+apps/bff/dist/
+
+# Subagent-driven-development scratch workspace (per-plan ledgers/briefs/reports)
+.superpowers/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+
+# Deployment-generated network policy and private discovery credentials.
+/deploy/generated/
+
+# Local assistant tooling, browser traces and disposable outputs.
+/.agents/
+/.codex/
+/.pi/
+/.playwright*/
+/docs/superpowers/
+/AGENTS.md
+/.ignore
+/package-lock.json
+/app/
+/tmp/
+/dist/
+/storage/redis_data/
+**/__pycache__/
+**/*.pyc
+.env.*
+!.env.example
+!.env.compose.example
+!**/.env.example
+
+# Operator-created private backups.
+/backups/

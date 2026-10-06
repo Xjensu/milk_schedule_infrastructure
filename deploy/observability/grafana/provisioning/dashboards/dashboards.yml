@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Milk Schedule
+    orgId: 1
+    folder: Milk Schedule
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /var/lib/grafana/dashboards

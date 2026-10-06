@@ -1,0 +1,17 @@
+upstream rails_web {
+  zone rails_web 64k;
+{{ range service "schedule-web" "passing" }}  server {{ .Address }}:{{ .Port }} max_fails=2 fail_timeout=5s;
+{{ else }}  server 127.0.0.1:9 down;
+{{ end }}  keepalive 16;
+}
+upstream hanami_api {
+  zone hanami_api 64k;
+{{ range service "api-geteway" "passing" }}  server {{ .Address }}:{{ .Port }} max_fails=2 fail_timeout=5s;
+{{ else }}  server 127.0.0.1:9 down;
+{{ end }}  keepalive 8;
+}
+upstream ops_service {
+  zone ops_service 64k;
+{{ range service "ops-console" "passing" }}  server {{ .Address }}:{{ .Port }};
+{{ else }}  server 127.0.0.1:9 down;
+{{ end }}}

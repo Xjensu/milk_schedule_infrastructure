@@ -1,0 +1,22 @@
+groups:
+  - name: milk-schedule-availability
+    rules:
+      - alert: ScheduleWebDown
+        expr: up{job="schedule_web"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: schedule_web
+        annotations:
+          summary: "Schedule Web is unreachable"
+          description: "Prometheus has been unable to scrape the Rails metrics endpoint for more than two minutes."
+
+      - alert: ScheduleWebCircuitBreakerOpen
+        expr: max(schedule_web_breaker_open) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: schedule_web
+        annotations:
+          summary: "An upstream circuit breaker is open"
+          description: "At least one Schedule Web upstream has been failing continuously for five minutes; inspect the breaker key in Grafana."

@@ -1,61 +1,681 @@
-x-logging: &default-logging
-  driver: "json-file"
+name: ${COMPOSE_PROJECT_NAME:-milk_schedule}
+
+# Server deployment: every service uses a registry image. Build on the workstation
+# with compose.build.yml; deploy/bin/compose.sh loads both environment files.
+x-logging: &id001
+  driver: json-file
   options:
-    max-size: "10m"
-    max-file: "3"
-
+    max-size: 10m
+    max-file: '3'
 services:
-  api_geteway:
-    build:
-      context: ./apps/api_geteway
-      dockerfile: Dockerfile
-    container_name: api_geteway
-    env_file:
-      - .env.local
-    ports:
-      - "2300:2300"
-    logging: *default-logging
+  scheduler:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-scheduler:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    container_name: milk_schedule_scheduler
+    environment:
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: scheduler
+      DISCOVERY_DEPENDENCIES: ''
+      DISCOVERY_PORT: '8100'
+      PYTHONPATH: /opt/discovery/python
+      RUBYLIB: /opt/discovery/ruby
+      NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
+      TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
+      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      DISCOVERY_HEALTH_PATH: /health
+    networks:
+    - discovery
+    expose:
+    - '8100'
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/health',
+        timeout=2)
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    logging: *id001
+    cpus: 1.0
+    mem_limit: 2g
+    volumes:
+    - ./deploy/discovery:/opt/discovery:ro
+    - ./deploy/generated/scheduler.token:/run/secrets/consul-token:ro
     depends_on:
-      - db
-      - minio
-
+      discovery_acl:
+        condition: service_completed_successfully
+  frontend:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-frontend:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    container_name: milk_schedule_frontend
+    ports:
+    - 127.0.0.1:8080:80
+    environment:
+      LAN_CIDR: ${LAN_CIDR:-127.0.0.1/32}
+      NGINX_ENVSUBST_FILTER: ^LAN_CIDR$
+    networks:
+    - discovery
+    depends_on:
+      api_geteway:
+        condition: service_started
+      schedule_web:
+        condition: service_healthy
+      ops_console:
+        condition: service_healthy
+    logging: *id001
+    profiles:
+    - legacy-frontend
+  schedule_web:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-bsut-by:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    env_file:
+    - .env.local
+    environment:
+      RAILS_ENV: production
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: schedule-web
+      DISCOVERY_DEPENDENCIES: api-geteway,redis
+      DISCOVERY_PORT: '3000'
+      PYTHONPATH: /opt/discovery/python
+      RUBYLIB: /opt/discovery/ruby
+      NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
+      TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
+      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      DISCOVERY_HEALTH_PATH: /readyz
+    depends_on:
+      api_geteway:
+        condition: service_started
+      redis:
+        condition: service_started
+      discovery_acl:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:3000/up
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    logging: *id001
+    networks:
+    - discovery
+    volumes:
+    - ./deploy/discovery:/opt/discovery:ro
+    - ./deploy/generated/schedule-web.token:/run/secrets/consul-token:ro
+    deploy:
+      replicas: ${WEB_REPLICAS:-2}
+  api_geteway:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    container_name: api_geteway
+    networks:
+    - discovery
+    env_file:
+    - .env.local
+    environment:
+      AVRO_SCHEMA_DIR: /schemas/avro
+      NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: api-geteway
+      DISCOVERY_DEPENDENCIES: postgres,redis,minio
+      DISCOVERY_PORT: '2300'
+      PYTHONPATH: /opt/discovery/python
+      RUBYLIB: /opt/discovery/ruby
+      TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
+      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      DISCOVERY_HEALTH_PATH: /readyz
+      HANAMI_ENV: production
+      RACK_ENV: production
+    volumes:
+    - ./schemas:/schemas:ro
+    - ./deploy/discovery:/opt/discovery:ro
+    - ./deploy/generated/api-geteway.token:/run/secrets/consul-token:ro
+    logging: *id001
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:2300/readyz
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      db:
+        condition: service_started
+      minio:
+        condition: service_started
+      redis:
+        condition: service_started
+      discovery_acl:
+        condition: service_completed_successfully
+    restart: unless-stopped
+  ops_console:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    container_name: milk_schedule_ops_console
+    command:
+    - ruby
+    - bin/local_ops_console
+    env_file:
+    - .env.local
+    - ./deploy/ops/.env.local
+    environment:
+      HANAMI_ENV: production
+      RACK_ENV: production
+      HOME: /tmp
+      BUNDLE_USER_HOME: /tmp/bundle
+      TMPDIR: /tmp
+      OPS_CONSOLE_HOST: 0.0.0.0
+      OPS_CONSOLE_PORT: '8090'
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: ops-console
+      DISCOVERY_DEPENDENCIES: postgres
+      DISCOVERY_PORT: '8090'
+      PYTHONPATH: /opt/discovery/python
+      RUBYLIB: /opt/discovery/ruby
+      NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
+      TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
+      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      DISCOVERY_HEALTH_PATH: /healthz
+    user: 65532:65532
+    read_only: true
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 512m
+    expose:
+    - '8090'
+    networks:
+    - discovery
+    depends_on:
+      db:
+        condition: service_healthy
+      discovery_acl:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    logging: *id001
+    healthcheck:
+      test:
+      - CMD
+      - ruby
+      - -rsocket
+      - -e
+      - TCPSocket.new('127.0.0.1', 8090).close
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    volumes:
+    - ./deploy/discovery:/opt/discovery:ro
+    - ./deploy/generated/ops-console.token:/run/secrets/consul-token:ro
+  outbox_relay:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    container_name: outbox_relay
+    env_file:
+    - .env.local
+    environment:
+      AVRO_SCHEMA_DIR: /schemas/avro
+      NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
+      OUTBOX_STREAM_KEY: schedule:event_outbox
+      OUTBOX_STREAM_MAXLEN: '100000'
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: outbox-relay
+      DISCOVERY_DEPENDENCIES: postgres,redis,minio
+      DISCOVERY_PORT: '0'
+      PYTHONPATH: /opt/discovery/python
+      RUBYLIB: /opt/discovery/ruby
+      TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
+      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      HANAMI_ENV: production
+      RACK_ENV: production
+    volumes:
+    - ./schemas:/schemas:ro
+    - ./deploy/discovery:/opt/discovery:ro
+    - ./deploy/generated/outbox-relay.token:/run/secrets/consul-token:ro
+    logging: *id001
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      discovery_acl:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    command:
+    - bundle
+    - exec
+    - ruby
+    - bin/outbox_relay
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - kill -0 1
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+    - discovery
+  media_sanitizer:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    container_name: media_sanitizer
+    env_file:
+    - .env.local
+    environment:
+      AVRO_SCHEMA_DIR: /schemas/avro
+      MEDIA_REQUIRE_VIRUS_SCAN: 'true'
+      MEDIA_SANITIZE_TIMEOUT: '30'
+      MEDIA_SANITIZER_POLL_INTERVAL: '5'
+      MEDIA_SANITIZER_BATCH_SIZE: '10'
+      MEDIA_SANITIZER_CONCURRENCY: '3'
+      MEDIA_SANITIZER_SCAN_TIMEOUT: '300'
+      MEDIA_SANITIZER_MAX_ATTEMPTS: '5'
+      MEDIA_IMAGE_MAX_PIXELS: '100000000'
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: media-sanitizer
+      DISCOVERY_DEPENDENCIES: postgres,redis,minio
+      DISCOVERY_PORT: '0'
+      PYTHONPATH: /opt/discovery/python
+      RUBYLIB: /opt/discovery/ruby
+      NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
+      TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
+      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      HANAMI_ENV: production
+      RACK_ENV: production
+    volumes:
+    - ./schemas:/schemas:ro
+    - ./deploy/discovery:/opt/discovery:ro
+    - ./deploy/generated/media-sanitizer.token:/run/secrets/consul-token:ro
+    logging: *id001
+    depends_on:
+      db:
+        condition: service_started
+      minio:
+        condition: service_started
+      redis:
+        condition: service_started
+      discovery_acl:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    command:
+    - bundle
+    - exec
+    - ruby
+    - bin/media_sanitizer
+    networks:
+    - discovery
+  notice_export_worker:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    container_name: notice_export_worker
+    env_file:
+    - .env.local
+    environment:
+      AVRO_SCHEMA_DIR: /schemas/avro
+      NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: notice-export-worker
+      DISCOVERY_DEPENDENCIES: postgres,redis,minio
+      DISCOVERY_PORT: '0'
+      PYTHONPATH: /opt/discovery/python
+      RUBYLIB: /opt/discovery/ruby
+      TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
+      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      HANAMI_ENV: production
+      RACK_ENV: production
+    volumes:
+    - ./schemas:/schemas:ro
+    - ./deploy/discovery:/opt/discovery:ro
+    - ./deploy/generated/notice-export-worker.token:/run/secrets/consul-token:ro
+    logging: *id001
+    depends_on:
+      api_geteway:
+        condition: service_healthy
+      minio_init:
+        condition: service_completed_successfully
+      discovery_acl:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    command:
+    - bundle
+    - exec
+    - ruby
+    - bin/notice_export_worker
+    networks:
+    - discovery
+  schedule_generation_worker:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    container_name: schedule_generation_worker
+    env_file:
+    - .env.local
+    environment:
+      AVRO_SCHEMA_DIR: /schemas/avro
+      SCHEDULE_GENERATION_WORKER: '1'
+      SCHEDULE_GENERATION_POLL_INTERVAL: '3'
+      SCHEDULE_GENERATION_BATCH_SIZE: '1'
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: schedule-generation-worker
+      DISCOVERY_DEPENDENCIES: postgres,redis,minio,scheduler
+      DISCOVERY_PORT: '0'
+      PYTHONPATH: /opt/discovery/python
+      RUBYLIB: /opt/discovery/ruby
+      NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
+      TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
+      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      HANAMI_ENV: production
+      RACK_ENV: production
+    networks:
+    - discovery
+    volumes:
+    - ./schemas:/schemas:ro
+    - ./deploy/discovery:/opt/discovery:ro
+    - ./deploy/generated/schedule-generation-worker.token:/run/secrets/consul-token:ro
+    logging: *id001
+    depends_on:
+      api_geteway:
+        condition: service_healthy
+      scheduler:
+        condition: service_healthy
+      discovery_acl:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    command:
+    - bundle
+    - exec
+    - ruby
+    - bin/schedule_generation_worker
+  excel_processor:
+    image: ${IMAGE_NAMESPACE:-xjensu}/excel-processor:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    container_name: excel_processor
+    env_file:
+    - .env.local
+    environment:
+      AVRO_SCHEMA_DIR: /schemas/avro
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: excel-processor
+      DISCOVERY_DEPENDENCIES: postgres,redis,minio
+      DISCOVERY_PORT: '5000'
+      PYTHONPATH: /opt/discovery/python
+      RUBYLIB: /opt/discovery/ruby
+      NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
+      TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
+      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      DISCOVERY_HEALTH_PATH: /health
+    volumes:
+    - ./schemas:/schemas:ro
+    - ./deploy/discovery:/opt/discovery:ro
+    - ./deploy/generated/excel-processor.token:/run/secrets/consul-token:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+      discovery_acl:
+        condition: service_completed_successfully
+    logging: *id001
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+    command:
+    - sh
+    - -c
+    - python migrations/apply_migrations.py && python run.py
+    networks:
+    - discovery
   db:
-    image: postgres:15
+    image: ${POSTGRES_IMAGE:-pgrouting/pgrouting:15-3.5-develop}
+    restart: unless-stopped
     container_name: postgres
     env_file:
-      - .env.local
+    - .env.local
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    logging: *default-logging
-  
+    - postgres-data:/var/lib/postgresql/data
+    networks:
+    - discovery
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
   redis:
-    image: redis:7-alpine
+    image: ${REDIS_IMAGE:-redis:7-alpine}
     container_name: redis
     restart: unless-stopped
     volumes:
-      - ./storage/redis_data:/data
+    - ./storage/redis_data:/data
     env_file:
-      - .env.local
-    command: redis-server --protected-mode yes --requirepass $REDIS_PASSWORD
+    - .env.local
+    command:
+    - sh
+    - -c
+    - redis-server --protected-mode yes --requirepass "$$REDIS_PASSWORD" --appendonly
+      yes --appendfsync everysec
+    networks:
+    - discovery
+  solr:
+    image: solr:9-slim
+    container_name: milk_schedule_solr
+    profiles:
+    - search-experiment
+    ports:
+    - 127.0.0.1:8983:8983
+    volumes:
+    - solr-data:/var/solr
+    command:
+    - solr-precreate
+    - schedule_experiment
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -fsS http://localhost:8983/solr/admin/info/system >/dev/null
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
   minio:
-    image: minio/minio:latest
+    image: ${MINIO_IMAGE:-quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e}
+    restart: unless-stopped
     container_name: hanami_minio
     env_file:
-      - .env.local
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+    - .env.local
     command: server /data --console-address ":9001"
     volumes:
-      - minio-data:/data
+    - minio-data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:9000/minio/health/live
       interval: 30s
       timeout: 20s
       retries: 3
-
+    networks:
+    - discovery
+    - edge
+    ports:
+    - ${LAN_BIND_IP:?Run preflight}:9000:9000
+  minio_init:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-minio-init:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    container_name: minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+      minio_registrar:
+        condition: service_started
+      discovery_acl:
+        condition: service_completed_successfully
+    env_file:
+    - .env.local
+    entrypoint:
+    - python3
+    - /opt/discovery/python/minio_init.py
+    restart: 'no'
+    networks:
+    - discovery
+    environment:
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: minio-init
+    volumes:
+    - ./deploy/generated/minio-init.token:/run/secrets/consul-token:ro
+  consul:
+    image: ${CONSUL_IMAGE:-hashicorp/consul:1.22.7}
+    command:
+    - agent
+    - -config-file=/consul/config/server.hcl
+    volumes:
+    - consul-data:/consul/data
+    - ./deploy/generated/consul.hcl:/consul/config/server.hcl:ro
+    networks:
+      discovery:
+        ipv4_address: ${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}
+    restart: unless-stopped
+    logging: *id001
+  discovery_acl:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-discovery:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    command:
+    - python
+    - bootstrap_acl.py
+    volumes:
+    - ./deploy/generated:/run/credentials:ro
+    user: 0:0
+    networks:
+    - discovery
+    depends_on:
+    - consul
+    restart: 'no'
+    logging: *id001
+  postgres_registrar:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-discovery:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    network_mode: service:db
+    environment:
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: postgres
+      DISCOVERY_PORT: '5432'
+    volumes:
+    - ./deploy/generated/postgres.token:/run/secrets/consul-token:ro
+    depends_on:
+      db:
+        condition: service_started
+      discovery_acl:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    logging: *id001
+  redis_registrar:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-discovery:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    network_mode: service:redis
+    environment:
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: redis
+      DISCOVERY_PORT: '6379'
+    volumes:
+    - ./deploy/generated/redis.token:/run/secrets/consul-token:ro
+    depends_on:
+      redis:
+        condition: service_started
+      discovery_acl:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    logging: *id001
+  minio_registrar:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-discovery:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    network_mode: service:minio
+    environment:
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: minio
+      DISCOVERY_PORT: '9000'
+      DISCOVERY_HEALTH_PATH: /minio/health/ready
+    volumes:
+    - ./deploy/generated/minio.token:/run/secrets/consul-token:ro
+    depends_on:
+      minio:
+        condition: service_started
+      discovery_acl:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    logging: *id001
+  nginx:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-edge:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    ulimits:
+      nofile:
+        soft: 16384
+        hard: 16384
+    ports:
+    - ${HTTP_BIND_IP:-0.0.0.0}:${HTTP_PORT:-80}:80
+    environment:
+      DISCOVERY_ENABLED: '1'
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_TOKEN_FILE: /run/secrets/consul-token
+      DISCOVERY_SERVICE: nginx
+      DISCOVERY_PORT: '80'
+      PYTHONPATH: /opt/discovery/python
+    volumes:
+    - ./deploy/discovery/python:/opt/discovery/python:ro
+    - ./deploy/generated/nginx.token:/run/secrets/consul-token:ro
+    - ./deploy/generated/lan.geo:/run/policy/lan.geo:ro
+    - ./deploy/edge/denylist.geo:/etc/nginx/denylist.geo:ro
+    networks:
+      discovery:
+        ipv4_address: ${INGRESS_IP:?Run preflight}
+      edge: {}
+    depends_on:
+      discovery_acl:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    logging: *id001
 volumes:
-  postgres-data:
-  minio-data:
+  postgres-data: null
+  minio-data: null
+  solr-data: null
+  consul-data: {}
+networks:
+  discovery:
+    internal: true
+    enable_ipv6: false
+    ipam:
+      config:
+      - subnet: ${DISCOVERY_SUBNET:?Run preflight}
+        ip_range: ${DISCOVERY_IP_RANGE:?Run preflight}
+  edge: {}

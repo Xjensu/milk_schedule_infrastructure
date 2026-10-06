@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package milk_schedule.events.v1;
+
+// Compatibility candidate for the existing schedule.load.faculty.<id>
+// notification. JSON/Avro remain the active wire formats until a benchmark
+// proves that this schema is worth adopting.
+message ScheduleChange {
+  int64 load_requirement_id = 1;
+  int64 semester_id = 2;
+  int64 faculty_id = 3;
+  Change change = 4;
+  string event_id = 5;
+  string occurred_at = 6;
+
+  enum Change {
+    CHANGE_UNSPECIFIED = 0;
+    CREATED = 1;
+    UPDATED = 2;
+    DESTROYED = 3;
+  }
+}

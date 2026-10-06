@@ -1,0 +1,6 @@
+*
+!Dockerfile
+!nginx.conf
+!upstreams.ctmpl
+!denylist.geo
+!supervise.py

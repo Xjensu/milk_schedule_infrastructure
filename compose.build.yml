@@ -1,0 +1,33 @@
+# Workstation only. This file is standalone, not a server override.
+services:
+  schedule_web:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-bsut-by:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
+    build: ./apps/schedule_web
+  api_geteway:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
+    build: ./apps/api_geteway
+  excel_processor:
+    image: ${IMAGE_NAMESPACE:-xjensu}/excel-processor:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
+    build: ./apps/excel_processor
+  scheduler:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-scheduler:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
+    build: ./apps/scheduler
+  discovery_acl:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-discovery:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
+    build: ./deploy/discovery
+  minio_init:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-minio-init:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
+    build:
+      context: ./deploy/discovery
+      dockerfile: MinioInit.Dockerfile
+  nginx:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-edge:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
+    build: ./deploy/edge
+  frontend:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-frontend:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
+    build: ./apps/frontend
+    profiles: [legacy-frontend]
+  fluentd:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-fluentd:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
+    build: ./deploy/observability/fluentd
+    profiles: [observability]

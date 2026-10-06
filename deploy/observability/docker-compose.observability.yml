@@ -1,0 +1,108 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.3.0
+    environment:
+      NO_PROXY: "localhost,127.0.0.1,127.0.0.0/8,172.18.0.0/16,prometheus,loki,schedule_web,api_geteway"
+      no_proxy: "localhost,127.0.0.1,127.0.0.0/8,172.18.0.0/16,prometheus,loki,schedule_web,api_geteway"
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      http_proxy: ""
+      https_proxy: ""
+    networks: [default, discovery]
+    container_name: milk_schedule_prometheus
+    profiles: [observability]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./deploy/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      schedule_web:
+        condition: service_healthy
+
+  loki:
+    image: grafana/loki:3.5.0
+    environment:
+      NO_PROXY: "localhost,127.0.0.1,127.0.0.0/8,172.18.0.0/16,prometheus,loki,schedule_web,api_geteway"
+      no_proxy: "localhost,127.0.0.1,127.0.0.0/8,172.18.0.0/16,prometheus,loki,schedule_web,api_geteway"
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      http_proxy: ""
+      https_proxy: ""
+    container_name: milk_schedule_loki
+    profiles: [observability]
+    command: -config.file=/etc/loki/config.yml
+    volumes:
+      - ./deploy/observability/loki/config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+
+  fluentd:
+    image: ${IMAGE_NAMESPACE:-xjensu}/table-fluentd:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    container_name: milk_schedule_fluentd
+    profiles: [observability]
+    depends_on:
+      - loki
+    ports:
+      - "127.0.0.1:24224:24224"
+      - "127.0.0.1:24224:24224/udp"
+    volumes:
+      - ./deploy/observability/fluentd/fluent.conf:/fluentd/etc/fluent.conf:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: milk_schedule_grafana
+    profiles: [observability]
+    env_file:
+      - ./deploy/observability/.env.local
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      NO_PROXY: "localhost,127.0.0.1,127.0.0.0/8,172.18.0.0/16,prometheus,loki,schedule_web,api_geteway"
+      no_proxy: "localhost,127.0.0.1,127.0.0.0/8,172.18.0.0/16,prometheus,loki,schedule_web,api_geteway"
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      http_proxy: ""
+      https_proxy: ""
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3001:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  prometheus-data:
+  loki-data:
+  grafana-data:

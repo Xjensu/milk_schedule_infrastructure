@@ -1,0 +1,33 @@
+{
+  "type": "record",
+  "name": "MediaFileEvent",
+  "namespace": "milk_schedule.events",
+  "doc": "Published when a media file's sanitization status changes. Reserved for future webhook/notification consumers.",
+  "fields": [
+    {
+      "name": "media_file_id",
+      "type": "int",
+      "doc": "Primary key of the media_files row."
+    },
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "MediaFileStatus",
+        "symbols": ["quarantined", "scanning", "clean", "rejected"]
+      },
+      "doc": "New status after the transition."
+    },
+    {
+      "name": "rejection_reason",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Human-readable rejection cause. Non-null only when status = rejected."
+    },
+    {
+      "name": "schema_version",
+      "type": "string",
+      "default": "v1"
+    }
+  ]
+}
