@@ -1,0 +1,4 @@
+ARG WEB_BASE_IMAGE=xjensu/table-bsut-by:2026-10-06-1
+FROM ${WEB_BASE_IMAGE}
+RUN ruby -e 'p="/app/app/lib/resilience/call.rb"; s=File.read(p); abort "Unexpected resilience source" unless s.include?("attempts: 2, settings: ScheduleWeb::Settings.config)"); s=s.sub("attempts: 2, settings: ScheduleWeb::Settings.config)", "attempts: 2, settings: ScheduleWeb::Settings.config, timeout_total: nil)").sub("@settings = settings", "@settings = settings\n      @timeout_total = timeout_total || settings.timeout_total").sub("with_timeout(@settings.timeout_total,", "with_timeout(@timeout_total,"); File.write(p,s)'
+RUN ruby -e 'p="/app/app/lib/gateways/admin/excel_imports_gateway.rb"; s=File.read(p); abort "Unexpected Excel gateway source" unless s.include?("key: WRITE_KEY, cacheable: false, attempts: 1)"); File.write(p,s.sub("key: WRITE_KEY, cacheable: false, attempts: 1)", "key: WRITE_KEY, cacheable: false, attempts: 1, timeout_total: 120.0)"))'

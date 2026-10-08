@@ -1,0 +1,16 @@
+{
+  "type": "Excel upload hotfix for 2026-10-06-1",
+  "images": [
+    {
+      "image": "xjensu/table-api:2026-10-08-2",
+      "digest": "sha256:c674eea501b899d5f8583b2a958bd6a6bef16e3654281079f421c7e6bce944a5",
+      "platform": "linux/amd64"
+    },
+    {
+      "image": "xjensu/table-bsut-by:2026-10-08-2",
+      "digest": "sha256:dd477e30dbd80a94c523661a200bfcd846d3a33837cb24f1af58f8b2de02478d",
+      "platform": "linux/amd64"
+    }
+  ],
+  "antivirus_image": "clamav/clamav@sha256:ebec5bc138401b36ae987caa1a3fa3c3b2a21ed3d51f0bfa5852825e663e67b0"
+}

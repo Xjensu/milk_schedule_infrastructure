@@ -70,7 +70,7 @@ services:
     profiles:
     - legacy-frontend
   schedule_web:
-    image: ${IMAGE_NAMESPACE:-xjensu}/table-bsut-by:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    image: ${WEB_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-bsut-by:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     env_file:
     - .env.local
     environment:
@@ -114,7 +114,7 @@ services:
     deploy:
       replicas: ${WEB_REPLICAS:-2}
   api_geteway:
-    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: api_geteway
     networks:
     - discovery
@@ -137,6 +137,7 @@ services:
       HANAMI_ENV: production
       RACK_ENV: production
     volumes:
+    - clamav-data:/var/lib/clamav:ro
     - ./schemas:/schemas:ro
     - ./deploy/discovery:/opt/discovery:ro
     - ./deploy/generated/api-geteway.token:/run/secrets/consul-token:ro
@@ -152,6 +153,8 @@ services:
       retries: 5
       start_period: 30s
     depends_on:
+      clamav_signatures:
+        condition: service_healthy
       db:
         condition: service_started
       minio:
@@ -162,7 +165,7 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
   ops_console:
-    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: milk_schedule_ops_console
     command:
     - ruby
@@ -226,7 +229,7 @@ services:
     - ./deploy/discovery:/opt/discovery:ro
     - ./deploy/generated/ops-console.token:/run/secrets/consul-token:ro
   outbox_relay:
-    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: outbox_relay
     env_file:
     - .env.local
@@ -276,7 +279,7 @@ services:
     networks:
     - discovery
   media_sanitizer:
-    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: media_sanitizer
     env_file:
     - .env.local
@@ -304,11 +307,14 @@ services:
       HANAMI_ENV: production
       RACK_ENV: production
     volumes:
+    - clamav-data:/var/lib/clamav:ro
     - ./schemas:/schemas:ro
     - ./deploy/discovery:/opt/discovery:ro
     - ./deploy/generated/media-sanitizer.token:/run/secrets/consul-token:ro
     logging: *id001
     depends_on:
+      clamav_signatures:
+        condition: service_healthy
       db:
         condition: service_started
       minio:
@@ -326,7 +332,7 @@ services:
     networks:
     - discovery
   notice_export_worker:
-    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: notice_export_worker
     env_file:
     - .env.local
@@ -366,7 +372,7 @@ services:
     networks:
     - discovery
   schedule_generation_worker:
-    image: ${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
+    image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: schedule_generation_worker
     env_file:
     - .env.local
@@ -408,6 +414,20 @@ services:
     - exec
     - ruby
     - bin/schedule_generation_worker
+  clamav_signatures:
+    image: ${CLAMAV_IMAGE:-clamav/clamav@sha256:ebec5bc138401b36ae987caa1a3fa3c3b2a21ed3d51f0bfa5852825e663e67b0}
+    entrypoint: ["sh", "/opt/antivirus/update-signatures.sh"]
+    volumes:
+    - clamav-data:/signatures
+    - ./deploy/antivirus/update-signatures.sh:/opt/antivirus/update-signatures.sh:ro
+    networks: [edge]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /signatures/main.cvd && { test -s /signatures/daily.cvd || test -s /signatures/daily.cld; }"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
   excel_processor:
     image: ${IMAGE_NAMESPACE:-xjensu}/excel-processor:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
     container_name: excel_processor
@@ -666,6 +686,7 @@ services:
     restart: unless-stopped
     logging: *id001
 volumes:
+  clamav-data: {}
   postgres-data: null
   minio-data: null
   solr-data: null

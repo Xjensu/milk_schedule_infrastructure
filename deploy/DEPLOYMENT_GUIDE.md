@@ -343,3 +343,58 @@ Useful server diagnostics:
 For optional monitoring, see [observability/README.md](observability/README.md). Build/push Fluentd on the development PC for the chosen tag before enabling the server overlay.
 
 Deployment does not configure router rules, DNS, TLS certificates or automatic firewall restoration after host restarts. Reapply `install-project-firewall.py` after host/firewall restarts or container replacement.
+
+## 11. Start and troubleshoot Excel imports
+
+Excel imports use the Hanami API for validation, antivirus scanning and MinIO storage, Redis plus the outbox relay for delivery, and `excel_processor` for parsing. The worker is part of the default Compose stack; no optional profile or publicly exposed worker port is needed.
+
+The original API release called an unsupported Clamby method, reporting that ClamAV was missing even though the executable was installed. It also lacked virus signatures. The corrected API image is `xjensu/table-api:2026-10-08-2`. For the existing `2026-10-06-1` release, add this override to `.env.local`:
+
+```dotenv
+API_IMAGE=xjensu/table-api:2026-10-08-2
+WEB_IMAGE=xjensu/table-bsut-by:2026-10-08-2
+```
+
+The web hotfix gives Excel uploads a 120-second deadline instead of the general five-second deadline, with one submission attempt. Normal requests retain their existing deadline. The updated `.env.example` already includes both settings. It applies to all API containers. When upgrading to a complete new release whose API includes the fix, remove or update these overrides so they do not keep the old API or web image pinned.
+
+From the deployment checkout, pull and start the stack:
+
+```bash
+git pull --ff-only
+python3 deploy/bin/prepare-discovery.py
+./deploy/bin/compose.sh config --quiet
+./deploy/bin/compose.sh pull
+./deploy/bin/compose.sh up -d --no-build
+python3 deploy/bin/install-project-firewall.py
+./deploy/bin/compose.sh up -d --no-build --wait --wait-timeout 180
+./deploy/bin/compose.sh exec -T nginx nginx -t
+./deploy/bin/compose.sh exec -T nginx nginx -s reload
+```
+
+Preflight refreshes the detected LAN address before MinIO binds port 9000. This matters when moving the host between networks. Keep the existing database and storage volumes. For a fresh deployment, run migrations and seeds as described earlier before using imports.
+
+`clamav_signatures` initializes a new `clamav-data` volume with signature files bundled in the pinned official ClamAV image, then runs FreshClam to update them. The API and media sanitizer mount the database read-only and wait for initialization. The updater has outbound networking and publishes no host port. The API remains on the internal discovery network. Upload scanning stays required.
+
+Check services and perform a real upload:
+
+```bash
+./deploy/bin/compose.sh ps -a
+./deploy/bin/compose.sh logs --tail=50 clamav_signatures
+./deploy/bin/compose.sh logs --tail=50 excel_processor outbox_relay
+./deploy/bin/compose.sh exec -T api_geteway ruby -I /app/lib -e 'require "api_geteway/media/sanitizers/virus_scanner"; p APIGeteway::Media::Sanitizers::VirusScanner.scan("/etc/hostname")'
+```
+
+The last command should report `clean: true`. Sign in as the initial super administrator, open `/admin/excel_imports`, and drop one real `.xls` or `.xlsx` workbook, up to 20 MiB. A successful upload returns HTTP 201 and queues processing. The list then reports the parsing result. A valid Excel container can still be rejected by the parser if its sheets do not match the supported curriculum format; service health alone does not validate that format.
+
+If the page reports an error, inspect the corresponding logs:
+
+```bash
+./deploy/bin/compose.sh logs --since=10m nginx schedule_web api_geteway
+./deploy/bin/compose.sh logs --since=10m excel_processor outbox_relay
+```
+
+- HTTP 403 on `/session` or `/admin/`: use the LAN address or configure localhost access using the section above.
+- `VirusScanner: ClamAV not found`: verify `API_IMAGE` points to the corrected image and recreate the API container.
+- Scanner database/load errors: check `clamav_signatures` health and its database volume. Do not disable scanning to bypass the failure.
+- FreshClam 403/429: the update CDN may block the network or impose a cooldown. Bundled signatures allow initial scanning, but healthy initialization does not prove current signatures. Respect the logged cooldown, restore permitted CDN access, and verify successful updates before relying on the deployment for ongoing production use. Review the [official FreshClam troubleshooting guidance](https://docs.clamav.net/faq/faq-freshclam.html). Changing the pinned ClamAV image alone does not overwrite an existing signature database.
+- Upload accepted but processing does not finish: check `excel_processor`, `outbox_relay`, Redis discovery and worker logs. Restart a stopped worker with `./deploy/bin/compose.sh up -d --no-build excel_processor outbox_relay`; do not rerun seeds or delete volumes.

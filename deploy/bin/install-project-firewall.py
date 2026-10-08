@@ -24,7 +24,7 @@ elif shutil.which("sudo") and subprocess.run(["sudo", "-n", "true"], capture_out
     subprocess.run(["sudo", "-n", "python3", script], check=True)
 else:
     # This helper alone has NET_ADMIN. Application and registration containers do not.
-    image = next(x["Image"] for x in containers if x["Config"]["Labels"]["com.docker.compose.service"] == "nginx")
+    image = next(x["Config"]["Image"] for x in containers if x["Config"]["Labels"]["com.docker.compose.service"] == "nginx")
     subprocess.run(["docker", "run", "--rm", "--entrypoint", "sh", "--network", "host", "--cap-add", "NET_ADMIN",
                     "-v", str(ROOT) + ":/workspace:ro", image, "-ec",
                     "python3 /workspace/deploy/bin/project-firewall.py"], check=True)
