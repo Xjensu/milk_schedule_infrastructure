@@ -13,7 +13,7 @@ services:
     container_name: milk_schedule_scheduler
     environment:
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: scheduler
       DISCOVERY_DEPENDENCIES: ''
@@ -76,7 +76,7 @@ services:
     environment:
       RAILS_ENV: production
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: schedule-web
       DISCOVERY_DEPENDENCIES: api-geteway,redis
@@ -124,7 +124,7 @@ services:
       AVRO_SCHEMA_DIR: /schemas/avro
       NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: api-geteway
       DISCOVERY_DEPENDENCIES: postgres,redis,minio
@@ -182,7 +182,7 @@ services:
       OPS_CONSOLE_HOST: 0.0.0.0
       OPS_CONSOLE_PORT: '8090'
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: ops-console
       DISCOVERY_DEPENDENCIES: postgres
@@ -239,7 +239,7 @@ services:
       OUTBOX_STREAM_KEY: schedule:event_outbox
       OUTBOX_STREAM_MAXLEN: '100000'
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: outbox-relay
       DISCOVERY_DEPENDENCIES: postgres,redis,minio
@@ -294,7 +294,7 @@ services:
       MEDIA_SANITIZER_MAX_ATTEMPTS: '5'
       MEDIA_IMAGE_MAX_PIXELS: '100000000'
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: media-sanitizer
       DISCOVERY_DEPENDENCIES: postgres,redis,minio
@@ -340,7 +340,7 @@ services:
       AVRO_SCHEMA_DIR: /schemas/avro
       NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: notice-export-worker
       DISCOVERY_DEPENDENCIES: postgres,redis,minio
@@ -382,7 +382,7 @@ services:
       SCHEDULE_GENERATION_POLL_INTERVAL: '3'
       SCHEDULE_GENERATION_BATCH_SIZE: '1'
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: schedule-generation-worker
       DISCOVERY_DEPENDENCIES: postgres,redis,minio,scheduler
@@ -436,7 +436,7 @@ services:
     environment:
       AVRO_SCHEMA_DIR: /schemas/avro
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: excel-processor
       DISCOVERY_DEPENDENCIES: postgres,redis,minio
@@ -569,7 +569,7 @@ services:
     - discovery
     environment:
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: minio-init
     volumes:
@@ -606,7 +606,7 @@ services:
     network_mode: service:db
     environment:
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: postgres
       DISCOVERY_PORT: '5432'
@@ -624,7 +624,7 @@ services:
     network_mode: service:redis
     environment:
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: redis
       DISCOVERY_PORT: '6379'
@@ -642,7 +642,7 @@ services:
     network_mode: service:minio
     environment:
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: minio
       DISCOVERY_PORT: '9000'
@@ -666,7 +666,7 @@ services:
     - ${HTTP_BIND_IP:-0.0.0.0}:${HTTP_PORT:-80}:80
     environment:
       DISCOVERY_ENABLED: '1'
-      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_ADDR: http://${CONSUL_IP:?Run deploy/bin/prepare-discovery.py}:8500
       CONSUL_TOKEN_FILE: /run/secrets/consul-token
       DISCOVERY_SERVICE: nginx
       DISCOVERY_PORT: '80'

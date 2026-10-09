@@ -427,3 +427,20 @@ curl --fail http://localhost/
 Each active web replica should have an `http` check with status `passing`. Docker's `/up` check only proves the process is alive; Consul's `/readyz` also checks whether the application can use Redis and the API. If the HTTP check stays critical, examine those dependencies and the web logs. A registration rejection can indicate mismatched or unreadable discovery tokens; preserve the matching generated tokens and Consul data across updates.
 
 See the [official Consul health-check documentation](https://developer.hashicorp.com/consul/docs/register/health-check/vm) for the distinction between TTL and HTTP checks.
+
+### Registration fails with `Socket::ResolutionError`
+
+The HTTP-check change alone does not fix a failure to resolve the `consul` hostname. Affected Ruby registration loops can stop refreshing the registration while Docker still reports the web process as healthy. The updated Compose configuration uses the automatically generated, fixed Consul address inside the Docker discovery network. This is not the host machine's address, and requires no manual IP configuration.
+
+Apply the updated Compose environment by recreating containers; `restart` alone does not apply it:
+
+```bash
+git pull --ff-only
+python3 deploy/bin/prepare-discovery.py
+./deploy/bin/compose.sh config --quiet
+./deploy/bin/compose.sh up -d --no-build
+python3 deploy/bin/install-project-firewall.py
+./deploy/bin/compose.sh up -d --no-build --wait --wait-timeout 180
+```
+
+Then check the web registrations using the command in section 12. Each active replica must have an `http` check with status `passing`, and `http://localhost` should return HTTP 200. Empty registration results are a failure even when Docker reports healthy containers. Capture recent Consul and web logs if checks do not recover. No new Docker Hub image is required for this Compose/discovery update. Preserve existing secrets and data volumes.
