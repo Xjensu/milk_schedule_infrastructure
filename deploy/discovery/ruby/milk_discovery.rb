@@ -115,23 +115,30 @@ module MilkDiscovery
           socket.connect(target.host, target.port)
           address = socket.addr.last
           socket.close
-          request("/v1/agent/service/register", method: :put, payload: {
-            ID: id, Name: service, Address: address, Port: Integer(ENV.fetch("DISCOVERY_PORT", "0")),
-            Meta: { revision: ENV.fetch("APP_REVISION", "unknown") },
-            Check: { TTL: "15s", DeregisterCriticalServiceAfter: "2m" }
-          })
-          healthy = if ENV["DISCOVERY_HEALTH_PATH"]
-            uri = URI("http://127.0.0.1:#{ENV.fetch('DISCOVERY_PORT')}#{ENV.fetch('DISCOVERY_HEALTH_PATH')}")
-            http = Net::HTTP.new(uri.host, uri.port, nil)
-            http.open_timeout = 1
-            http.read_timeout = 3
-            http.get(uri.path).is_a?(Net::HTTPSuccess)
+          port = Integer(ENV.fetch("DISCOVERY_PORT", "0"))
+          # Consul probes HTTP services independently of their Ruby VM/thread.
+          # TTL remains appropriate for workers, whose progress is measured here.
+          check = if ENV["DISCOVERY_HEALTH_PATH"]
+            { HTTP: "http://#{address}:#{port}#{ENV.fetch('DISCOVERY_HEALTH_PATH')}",
+              Interval: "5s", Timeout: "3s", DeregisterCriticalServiceAfter: "2m" }
           else
-            worker_healthy? && ENV.fetch("DISCOVERY_DEPENDENCIES", "").split(",").all? { |name| !instances(name).empty? }
+            { TTL: "15s", DeregisterCriticalServiceAfter: "2m" }
           end
-          request("/v1/agent/check/#{healthy ? 'pass' : 'fail'}/service:#{id}", method: :put)
-        rescue StandardError
-          # No response bodies or credentials belong in registration logs.
+          request("/v1/agent/service/register?replace-existing-checks=true", method: :put, payload: {
+            ID: id, Name: service, Address: address, Port: port,
+            Meta: { revision: ENV.fetch("APP_REVISION", "unknown") }, Check: check
+          })
+          unless ENV["DISCOVERY_HEALTH_PATH"]
+            healthy = worker_healthy? && ENV.fetch("DISCOVERY_DEPENDENCIES", "").split(",").all? { |name| !instances(name).empty? }
+            request("/v1/agent/check/#{healthy ? 'pass' : 'fail'}/service:#{id}", method: :put)
+          end
+          registration_error = nil
+        rescue StandardError => error
+          # Log only the exception class, never response bodies or credentials.
+          if registration_error != error.class
+            warn "[discovery] Registration failed for #{service}: #{error.class}"
+          end
+          registration_error = error.class
         end
         sleep 5
       end

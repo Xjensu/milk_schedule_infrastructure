@@ -398,3 +398,32 @@ If the page reports an error, inspect the corresponding logs:
 - Scanner database/load errors: check `clamav_signatures` health and its database volume. Do not disable scanning to bypass the failure.
 - FreshClam 403/429: the update CDN may block the network or impose a cooldown. Bundled signatures allow initial scanning, but healthy initialization does not prove current signatures. Respect the logged cooldown, restore permitted CDN access, and verify successful updates before relying on the deployment for ongoing production use. Review the [official FreshClam troubleshooting guidance](https://docs.clamav.net/faq/faq-freshclam.html). Changing the pinned ClamAV image alone does not overwrite an existing signature database.
 - Upload accepted but processing does not finish: check `excel_processor`, `outbox_relay`, Redis discovery and worker logs. Restart a stopped worker with `./deploy/bin/compose.sh up -d --no-build excel_processor outbox_relay`; do not rerun seeds or delete volumes.
+
+## 12. Consul reports `Check missed TTL` for the web service
+
+This warning means the previous TTL check did not receive a heartbeat within 15 seconds. It does not, by itself, prove the web process crashed. A brief warning during restart, host suspension or dependency recovery may be transient. Repeated warnings with a running web container require checking readiness and discovery registration.
+
+The updated Ruby discovery helper registers HTTP checks for services that expose `DISCOVERY_HEALTH_PATH`, including `schedule-web`. Consul probes each container's `/readyz` every five seconds with a three-second timeout. It no longer relies on the web application's Ruby heartbeat thread. Services without an HTTP health endpoint retain TTL checks based on their worker progress. Registration errors log their exception class without exposing tokens.
+
+Apply this infrastructure update on the deployment server:
+
+```bash
+git pull --ff-only
+./deploy/bin/compose.sh config --quiet
+./deploy/bin/compose.sh restart schedule_web
+./deploy/bin/compose.sh up -d --no-build --wait --wait-timeout 180
+```
+
+The helper is mounted from `deploy/discovery`, so this change needs no image rebuild. Restarting the web containers reloads it and replaces the old TTL check with an HTTP check under the same service ID. Initial HTTP checks can briefly be critical until startup completes. Do not delete Consul data, disable health checks, or manually force checks to passing.
+
+Inspect the actual web checks using the service's existing token inside its container:
+
+```bash
+./deploy/bin/compose.sh exec -T schedule_web ruby -r milk_discovery -e 'MilkDiscovery.request("/v1/health/service/schedule-web").each { |r| puts({id:r["Service"]["ID"],checks:r["Checks"].map { |c| [c["Type"],c["Status"]] }}.to_json) }'
+./deploy/bin/compose.sh logs --since=10m consul schedule_web
+curl --fail http://localhost/
+```
+
+Each active web replica should have an `http` check with status `passing`. Docker's `/up` check only proves the process is alive; Consul's `/readyz` also checks whether the application can use Redis and the API. If the HTTP check stays critical, examine those dependencies and the web logs. A registration rejection can indicate mismatched or unreadable discovery tokens; preserve the matching generated tokens and Consul data across updates.
+
+See the [official Consul health-check documentation](https://developer.hashicorp.com/consul/docs/register/health-check/vm) for the distinction between TTL and HTTP checks.
