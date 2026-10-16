@@ -1,0 +1,5 @@
+# Optional overlay, loaded after docker-compose.yml through compose.sh -f ...
+services:
+  clamav_signatures:
+    volumes:
+      - ./deploy/antivirus/freshclam.conf:/etc/clamav/freshclam.conf:ro

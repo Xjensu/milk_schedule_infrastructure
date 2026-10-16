@@ -111,10 +111,10 @@ module MilkDiscovery
       until @stop
         begin
           target = URI(ENV.fetch("CONSUL_HTTP_ADDR"))
-          socket = UDPSocket.new
-          socket.connect(target.host, target.port)
-          address = socket.addr.last
-          socket.close
+          address = UDPSocket.open do |socket|
+            socket.connect(target.host, target.port)
+            socket.addr.last
+          end
           port = Integer(ENV.fetch("DISCOVERY_PORT", "0"))
           # Consul probes HTTP services independently of their Ruby VM/thread.
           # TTL remains appropriate for workers, whose progress is measured here.

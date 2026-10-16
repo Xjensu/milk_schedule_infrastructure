@@ -1,0 +1,49 @@
+{
+  "release": "2026-10-16-1",
+  "images": {
+    "xjensu/table-bsut-by:2026-10-16-1": {
+      "digest": "xjensu/table-bsut-by@sha256:157c3b45b776d36a01f153a1b3e3c757c209f8981791e31c749f152109e8efd3",
+      "architecture": "amd64"
+    },
+    "xjensu/table-api:2026-10-16-1": {
+      "digest": "xjensu/table-api@sha256:f6b08f0c0f501998379ff82e81f44bc52d6e7a1a60239ea8911285cca83edff7",
+      "architecture": "amd64"
+    }
+  },
+  "source": {
+    "rails": "e729d8acd4ccd35fc5ee76142c7ec7809df55813",
+    "api": "9aba520575b9320710e1bdfcfecdb30cd7d1cf34",
+    "infrastructure_base": "9cdb95d822c75c579e06185eed1853df78000ac8",
+    "branch": "codex/production-stability-2026-10-16"
+  },
+  "verification": {
+    "builds": "Rails and API Docker builds passed; both images pushed",
+    "socket_regression": {
+      "old_100_requests": {
+        "before": 9,
+        "after": 209,
+        "note": "same-process diagnostic includes server-side sockets"
+      },
+      "fixed_100_requests": {
+        "before": 9,
+        "after": 9
+      },
+      "fixed_failure_paths": "20 HTTP 500 requests and 10 timeout cancellations returned to 9 descriptors"
+    },
+    "real_falcon_readiness": "100 probes passed; worker PID 9 stayed at 9 descriptors; soft limit 65536",
+    "readiness": "Both Rails replicas and API returned HTTP 200",
+    "dependency_recovery": "API stop caused Rails readiness 503; API restart restored 200 without restarting Rails",
+    "assets": "Seven compiled CSS/JS assets returned 200 with CSS/JavaScript content types",
+    "puma": "Direct production Puma boot on 0.0.0.0:2300; no Hanami reloader warning",
+    "nginx": "Configuration validation passed; both Rails instances discovered",
+    "antivirus": "Pinned official image pulled; actual stale database rejected; date parser accepted historical database with diagnostic-only age override; CDN returned 403 with cooldown through 2026-10-17",
+    "not_verified": [
+      "Successful live ClamAV signature update",
+      "Multi-day production soak",
+      "Full business Excel import and notice export",
+      "Remote production deployment"
+    ],
+    "browser": "Playwright MCP public selection page loaded; zero console errors",
+    "antivirus_header_checks": "Official Alpine image accepted a fresh mocked header and rejected a stale one; actual stale CVD rejected; historical CVD parser separately checked"
+  }
+}

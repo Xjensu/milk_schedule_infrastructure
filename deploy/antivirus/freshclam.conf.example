@@ -1,0 +1,6 @@
+# Configure a trusted, maintained mirror; do not use this placeholder as-is.
+DatabaseOwner clamav
+DatabaseDirectory /signatures
+DatabaseMirror https://clamav-mirror.example.invalid
+DNSDatabaseInfo current.cvd.clamav.net
+LogTime yes

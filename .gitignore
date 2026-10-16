@@ -51,3 +51,6 @@ apps/bff/dist/
 
 # Operator-created private backups.
 /backups/
+
+# Optional operator-owned antivirus mirror/proxy configuration.
+/deploy/antivirus/freshclam.conf
