@@ -1,0 +1,306 @@
+{
+  "release": "2026-10-17-1",
+  "branch": "codex/simple-deployment-2026-10-17",
+  "workspace_branch": "codex/simple-deployment-workspace-2026-10-17",
+  "images": {
+    "xjensu/table-bsut-by:2026-10-17-1": {
+      "digest": "xjensu/table-bsut-by@sha256:1e5484eba8bc4273ed9313bc04b9474b06d6260dd86498547af2dbb466550dee",
+      "architecture": "amd64"
+    },
+    "xjensu/table-api:2026-10-17-1": {
+      "digest": "xjensu/table-api@sha256:612d1ce370f811b8af021d24d0b19be67a082380a2fc965c5e061dd100e692c5",
+      "architecture": "amd64"
+    },
+    "xjensu/table-edge:2026-10-17-1": {
+      "digest": "xjensu/table-edge@sha256:01cab4df740834f9eefaf8e1b3910c3bce75ab45970421237be1fe273a89b405",
+      "architecture": "amd64"
+    },
+    "xjensu/table-minio-init:2026-10-17-1": {
+      "digest": "xjensu/table-minio-init@sha256:ea668a77fe315d14cf5a960ef98cb41c6218ace60bd87268043189c870b8baec",
+      "architecture": "amd64"
+    },
+    "xjensu/excel-processor:2026-10-17-1": {
+      "digest": "xjensu/excel-processor@sha256:9e4f6ed8001f4d75f46c26d1ea200e03410fcdb566804cbc8f47f5d340247a17",
+      "architecture": "amd64"
+    }
+  },
+  "source": {
+    "schedule_web": "1646796d620e98b9200a0080e0b172e5e2b67018",
+    "api_geteway": "ddf921ca3f389856e44a481b517b3f41011e1fbe",
+    "excel_processor": "deefab66251279101d991d87d8de9d8a923e7dbb"
+  },
+  "topology": {
+    "default_services": 14,
+    "long_running_services": 13,
+    "retired_services": [
+      "consul",
+      "discovery_acl",
+      "postgres_registrar",
+      "redis_registrar",
+      "minio_registrar"
+    ],
+    "optional_services": [
+      "ops_console"
+    ],
+    "data_volumes_deleted": false
+  },
+  "verification": {
+    "cached_container_startup_seconds": 17.01,
+    "startup_conditions": "existing database/storage; images already cached; stopped containers started/recreated until Nginx started",
+    "readiness_requests": 250,
+    "worker_descriptors_after_readiness_requests": 9,
+    "idle_observation_seconds": 180,
+    "idle_worker_descriptor_range": [
+      9,
+      11
+    ],
+    "idle_worker_final_descriptors": 9,
+    "idle_samples": [
+      {
+        "elapsed_seconds": 0,
+        "processes": [
+          {
+            "pid": 1,
+            "descriptors": 7,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 1,
+              "anon_inode:[eventpoll]": 1,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          },
+          {
+            "pid": 9,
+            "descriptors": 11,
+            "soft_limit": 65536,
+            "utilization": 0.0002,
+            "categories": {
+              "anon_inode:[eventfd]": 2,
+              "anon_inode:[eventpoll]": 2,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:established:remote_port=56788": 1,
+              "tcp:established:remote_port=58004": 1,
+              "tcp:listen:remote_port=0": 1
+            }
+          }
+        ]
+      },
+      {
+        "elapsed_seconds": 30,
+        "processes": [
+          {
+            "pid": 1,
+            "descriptors": 7,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 1,
+              "anon_inode:[eventpoll]": 1,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          },
+          {
+            "pid": 9,
+            "descriptors": 10,
+            "soft_limit": 65536,
+            "utilization": 0.0002,
+            "categories": {
+              "anon_inode:[eventfd]": 2,
+              "anon_inode:[eventpoll]": 2,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:established:remote_port=58004": 1,
+              "tcp:listen:remote_port=0": 1
+            }
+          }
+        ]
+      },
+      {
+        "elapsed_seconds": 60,
+        "processes": [
+          {
+            "pid": 1,
+            "descriptors": 7,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 1,
+              "anon_inode:[eventpoll]": 1,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          },
+          {
+            "pid": 9,
+            "descriptors": 9,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 2,
+              "anon_inode:[eventpoll]": 2,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          }
+        ]
+      },
+      {
+        "elapsed_seconds": 90,
+        "processes": [
+          {
+            "pid": 1,
+            "descriptors": 7,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 1,
+              "anon_inode:[eventpoll]": 1,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          },
+          {
+            "pid": 9,
+            "descriptors": 9,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 2,
+              "anon_inode:[eventpoll]": 2,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          }
+        ]
+      },
+      {
+        "elapsed_seconds": 120,
+        "processes": [
+          {
+            "pid": 1,
+            "descriptors": 7,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 1,
+              "anon_inode:[eventpoll]": 1,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          },
+          {
+            "pid": 9,
+            "descriptors": 9,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 2,
+              "anon_inode:[eventpoll]": 2,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          }
+        ]
+      },
+      {
+        "elapsed_seconds": 150,
+        "processes": [
+          {
+            "pid": 1,
+            "descriptors": 7,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 1,
+              "anon_inode:[eventpoll]": 1,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          },
+          {
+            "pid": 9,
+            "descriptors": 9,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 2,
+              "anon_inode:[eventpoll]": 2,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          }
+        ]
+      },
+      {
+        "elapsed_seconds": 180,
+        "processes": [
+          {
+            "pid": 1,
+            "descriptors": 7,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 1,
+              "anon_inode:[eventpoll]": 1,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          },
+          {
+            "pid": 9,
+            "descriptors": 9,
+            "soft_limit": 65536,
+            "utilization": 0.0001,
+            "categories": {
+              "anon_inode:[eventfd]": 2,
+              "anon_inode:[eventpoll]": 2,
+              "file_or_device": 1,
+              "pipe": 3,
+              "tcp:listen:remote_port=0": 1
+            }
+          }
+        ]
+      }
+    ],
+    "backend_replacement": {
+      "old_api_ip": "172.28.246.133",
+      "new_api_ip": "172.28.246.140",
+      "rails_restarted": false,
+      "nginx_reloaded": false,
+      "public_status": 200
+    },
+    "admin": "Successful login and persisted faculty read-back",
+    "excel_worker": "Healthy with explicit psycopg2 driver",
+    "upload_freshness": "Authenticated valid GeoJSON upload rejected503; excel_files remained0",
+    "browser": "Public page loaded in Playwright; zero console errors",
+    "maintenance": "Hanami db version worked without Consul",
+    "not_verified": [
+      "Multi-day production soak",
+      "Remote production deployment",
+      "Successful live ClamAV signature refresh",
+      "Full business spreadsheet ingestion and notice export"
+    ],
+    "follow_up": {
+      "worker_monotonic_age_seconds": 38889,
+      "worker_pid": 9,
+      "worker_descriptors": 9,
+      "observed_at_utc": "2026-10-17T08:32:06.993388+00:00",
+      "note": "A later snapshot, not continuous monitoring of the entire interval"
+    }
+  }
+}

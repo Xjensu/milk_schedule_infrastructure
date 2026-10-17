@@ -2,12 +2,16 @@
 import os
 import subprocess
 from urllib.parse import quote, urlsplit
-from discovery import endpoint, start_registration, wait_for
 
-wait_for("minio")
-stop = start_registration(lambda: True)
+
+stop = None
+if os.environ.get("DISCOVERY_ENABLED") == "1":
+    from discovery import endpoint, start_registration, wait_for
+    wait_for("minio")
+    stop = start_registration(lambda: True)
 try:
-    address = urlsplit(endpoint("minio"))
+    address = urlsplit(endpoint("minio") if os.environ.get("DISCOVERY_ENABLED") == "1"
+                       else os.environ.get("MINIO_ENDPOINT", "http://minio:9000"))
     environment = os.environ.copy()
     environment["MC_HOST_local"] = (f"http://{quote(environment['MINIO_ACCESS_KEY'], safe='')}:"
                                      f"{quote(environment['MINIO_SECRET_KEY'], safe='')}@{address.netloc}")

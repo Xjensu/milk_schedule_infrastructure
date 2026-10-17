@@ -1,4 +1,4 @@
-# Workstation only. This file is standalone, not a server override.
+# Workstation image builds; no application secrets required.
 services:
   schedule_web:
     image: ${IMAGE_NAMESPACE:-xjensu}/table-bsut-by:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
@@ -12,9 +12,6 @@ services:
   scheduler:
     image: ${IMAGE_NAMESPACE:-xjensu}/table-scheduler:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
     build: ./apps/scheduler
-  discovery_acl:
-    image: ${IMAGE_NAMESPACE:-xjensu}/table-discovery:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
-    build: ./deploy/discovery
   minio_init:
     image: ${IMAGE_NAMESPACE:-xjensu}/table-minio-init:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
     build:
@@ -26,8 +23,10 @@ services:
   frontend:
     image: ${IMAGE_NAMESPACE:-xjensu}/table-frontend:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
     build: ./apps/frontend
-    profiles: [legacy-frontend]
+    profiles:
+    - legacy-frontend
   fluentd:
     image: ${IMAGE_NAMESPACE:-xjensu}/table-fluentd:${IMAGE_TAG:?Set IMAGE_TAG to a release tag}
     build: ./deploy/observability/fluentd
-    profiles: [observability]
+    profiles:
+    - observability

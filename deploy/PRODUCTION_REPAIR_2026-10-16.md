@@ -1,3 +1,5 @@
+> Superseded for the 2026-10-17 simplified release: use [the current deployment runbook](SIMPLIFIED_DEPLOYMENT_2026-10-17.md). The instructions below describe the older Consul deployment.
+
 # Production repair and deployment — 2026-10-16
 
 This is an update guide for the existing server, not a clean installation. Preserve the Compose project name, private configuration, discovery tokens and all application data. Never run `down -v`, prune volumes, regenerate secrets or reseed as part of this repair.

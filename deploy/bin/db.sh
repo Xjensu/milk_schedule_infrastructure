@@ -7,7 +7,5 @@ case "${1:-}" in
   *) echo 'Usage: db.sh create|migrate|seed|version' >&2; exit 2 ;;
 esac
 [ "$#" -eq 1 ] || exit 2
-exec deploy/bin/compose.sh run --rm --no-deps -e DISCOVERY_COMMAND=1 \
-  api_geteway ruby -rmilk_discovery -e \
-  'MilkDiscovery.wait_for("postgres"); ENV["DATABASE_URL"] = MilkDiscovery.database_url; exec(*ARGV)' \
+exec deploy/bin/compose.sh run --rm --no-deps api_geteway \
   bundle exec hanami db "$1"

@@ -1,3 +1,5 @@
+> Superseded for the 2026-10-17 simplified release: use [the current deployment runbook](SIMPLIFIED_DEPLOYMENT_2026-10-17.md). The instructions below describe the older Consul deployment.
+
 # Discovery deployment and ingress
 
 ## Architecture

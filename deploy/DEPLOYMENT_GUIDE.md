@@ -1,14 +1,12 @@
+> Superseded for the 2026-10-17 simplified release: use [the current deployment runbook](SIMPLIFIED_DEPLOYMENT_2026-10-17.md). The instructions below describe the older Consul deployment.
+
 # Deploy from GitHub using Docker Hub images
 
 For the October 16 socket-exhaustion repair on an existing server, follow [Production repair and deployment](PRODUCTION_REPAIR_2026-10-16.md).
 
 The development PC builds and publishes images. The separate Linux server clones the main GitHub repository, reads `.env.local`, pulls those images and runs the application. No image builds run on the server, and no host IP entry is required.
 
-MinIO uses a pinned `linux/amd64` mirror in `xjensu/table-minio`; its original Quay reference rejects unauthenticated pulls. The mirror contains the same MinIO image used by this release. `MINIO_IMAGE` can override the reference in `.env.local`.
-
 The archive packaging script is optional. The standard procedure below uses a Git checkout of the main repository.
-
-For detailed image publishing instructions, see [DOCKERHUB_GUIDE.md](DOCKERHUB_GUIDE.md).
 
 ## 1. Publish the release from the development PC
 
@@ -35,13 +33,13 @@ Use a new tag for each release. The build file reads `.env` on the development P
 
 Create these repositories in your Docker Hub account and choose their visibility before pushing. Enter the Docker Hub token interactively at login. Build for the server's CPU architecture; an amd64 server needs amd64 images. ARM compatibility of the pinned dependencies has not been verified.
 
-Publish infrastructure changes from a checkout of this infrastructure repository on its `main` branch:
+Publish the corresponding main repository revision to GitHub too:
 
 ```bash
-git push origin main
+git push origin HEAD
 ```
 
-This publishes the infrastructure release to the infrastructure repository's main branch. The server must use its compatible published revision. Application directories under `apps/` have independent Git state; their compatible sources are required on the build PC, while the server uses their published images. Commit application source changes in their owning repositories when preparing a reproducible release.
+This pushes the current branch. The server must use that published branch/revision, not an older default branch. Application directories under `apps/` have independent Git state; their compatible sources are required on the build PC, while the server uses their published images. Commit application source changes in their owning repositories when preparing a reproducible release.
 
 Do not change sources or deployment configuration between building the images and identifying the matching Git revision. The build commands do not start or restart the development application.
 
@@ -58,12 +56,12 @@ sudo install -d -m 750 -o deploy -g deploy /opt/milk-schedule
 As that deployment account, clone the branch containing the release's deployment changes. Replace `DEPLOYMENT_BRANCH` with the branch published in step 1:
 
 ```bash
-git clone --branch main \
-  git@github.com:Xjensu/milk_schedule_infrastructure.git /opt/milk-schedule
+git clone --branch DEPLOYMENT_BRANCH \
+  https://github.com/Xjensu/milk_proto.git /opt/milk-schedule
 cd /opt/milk-schedule
 ```
 
-For a fixed release, check out its published commit or tag. GitHub SSH access is required for this clone URL; HTTPS cloning is also available for authorized users. The repository contains the server Compose file and its support files. You do not need to clone the nested application source repositories on the server.
+For a fixed release, check out its published commit or tag. The repository contains the server Compose file and its support files. You do not need to clone the nested application source repositories on the server.
 
 For private Docker Hub images, log in on the server using a token with pull access:
 
@@ -182,64 +180,6 @@ The `/ops/` console uses its own credentials and exposes allowlisted Hanami data
 
 Public pages are reachable through router forwarding. Administrator/login routes and `/ops/` remain LAN-restricted by default. Use the LAN or a deliberately configured VPN for administration. The current ingress is HTTP and does not encrypt credentials.
 
-### Sign in through localhost on the Docker host
-
-Public pages work at `http://localhost`, but local login can return **403** with the default LAN policy. Docker presents host requests to Nginx as the Docker bridge gateway, which is outside the detected LAN subnet. This is an ingress denial before the application checks the password.
-
-You can sign in through the automatically detected LAN address instead. To print it without reading secrets:
-
-```bash
-python3 -c 'import json; print("http://" + json.load(open("deploy/generated/network.json"))["address"] + "/admin/")'
-```
-
-If you need login at `http://localhost`, run this after starting the application, from the deployment directory. It detects the edge network gateway and adds only that host address (`/32`) to the existing administrator allowlist in the private `.env.local`. No machine IP needs to be entered manually.
-
-```bash
-python3 - <<'PYCODE'
-import json
-import re
-import subprocess
-from pathlib import Path
-
-container_id = subprocess.check_output(
-    ["./deploy/bin/compose.sh", "ps", "-q", "nginx"], text=True
-).strip()
-if not container_id:
-    raise SystemExit("Start Nginx before configuring localhost access.")
-container = json.loads(subprocess.check_output(
-    ["docker", "inspect", container_id], text=True
-))[0]
-gateways = {
-    network["Gateway"]
-    for name, network in container["NetworkSettings"]["Networks"].items()
-    if name.endswith("_edge") and network["Gateway"]
-}
-if len(gateways) != 1:
-    raise SystemExit("Could not identify a unique edge network gateway.")
-cidrs = json.loads(Path("deploy/generated/network.json").read_text())["cidrs"]
-cidrs = list(dict.fromkeys([*cidrs, next(iter(gateways)) + "/32"]))
-env_path = Path(".env.local")
-settings = env_path.read_text()
-if not re.search(r"^ADMIN_LAN_CIDRS=", settings, re.M):
-    raise SystemExit("Add the ADMIN_LAN_CIDRS setting from .env.example first.")
-settings = re.sub(
-    r"^ADMIN_LAN_CIDRS=.*$",
-    "ADMIN_LAN_CIDRS=" + ",".join(cidrs),
-    settings,
-    flags=re.M,
-)
-env_path.write_text(settings)
-print("Configured localhost access; credentials were not printed.")
-PYCODE
-python3 deploy/bin/prepare-discovery.py
-./deploy/bin/compose.sh exec -T nginx nginx -t
-./deploy/bin/compose.sh exec -T nginx nginx -s reload
-```
-
-Allow a moment for Nginx to reload, refresh `http://localhost`, and sign in using `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from `.env.local`. A fresh deployment generates a new administrator password; credentials from another deployment will not match. Updating the seed password does not reset an existing account.
-
-This is an optional host-access exception, not a requirement for remote LAN deployment. It also permits that host gateway to reach the other LAN-restricted routes. Do not allow the entire Docker subnet or `0.0.0.0/0`. If the edge network is recreated with a different gateway, remove the old gateway `/32` from `ADMIN_LAN_CIDRS` and repeat these steps. To restore LAN-only access, leave `ADMIN_LAN_CIDRS` blank and rerun preflight and the Nginx reload.
-
 Notice download links currently target MinIO on the detected private address at port 9000. Forwarding website port 80 alone does not make that private storage endpoint reachable from external clients. LAN/VPN downloads can use the default; external downloads require an appropriately secured storage endpoint and `NOTICE_EXPORT_PUBLIC_ENDPOINT` configuration.
 
 Verify schedules, administrator sign-in, an edit/reload, Excel import and notice download. Container health checks do not prove these complete workflows.
@@ -337,7 +277,7 @@ Useful server diagnostics:
 | `exec format error` | Images match the server architecture. |
 | Missing runtime mount | The compatible main repository revision was cloned, including `deploy/` and `schemas/`, and preflight ran. |
 | IP detection fails | Host private IPv4/default route; optional `ADMIN_INTERFACE` for unusual routing. |
-| Login, `/admin/` or `/ops/` returns 403 | Client must be on the detected LAN or configured administrator network. For host localhost access, follow the section above. |
+| `/admin/` or `/ops/` returns 403 | Client is on the detected LAN or configured administrator network. |
 | `/ops/` returns 401 | Its separate credentials and container recreation after changes. |
 | Env edit has no effect | Recreate containers; check shell overrides. |
 | Firewall helper fails | Docker iptables backend and `DOCKER-USER` chain. |
@@ -345,104 +285,3 @@ Useful server diagnostics:
 For optional monitoring, see [observability/README.md](observability/README.md). Build/push Fluentd on the development PC for the chosen tag before enabling the server overlay.
 
 Deployment does not configure router rules, DNS, TLS certificates or automatic firewall restoration after host restarts. Reapply `install-project-firewall.py` after host/firewall restarts or container replacement.
-
-## 11. Start and troubleshoot Excel imports
-
-Excel imports use the Hanami API for validation, antivirus scanning and MinIO storage, Redis plus the outbox relay for delivery, and `excel_processor` for parsing. The worker is part of the default Compose stack; no optional profile or publicly exposed worker port is needed.
-
-The original API release called an unsupported Clamby method, reporting that ClamAV was missing even though the executable was installed. It also lacked virus signatures. The corrected API image is `xjensu/table-api:2026-10-08-2`. For the existing `2026-10-06-1` release, add this override to `.env.local`:
-
-```dotenv
-API_IMAGE=xjensu/table-api:2026-10-08-2
-WEB_IMAGE=xjensu/table-bsut-by:2026-10-08-2
-```
-
-The web hotfix gives Excel uploads a 120-second deadline instead of the general five-second deadline, with one submission attempt. Normal requests retain their existing deadline. The updated `.env.example` already includes both settings. It applies to all API containers. When upgrading to a complete new release whose API includes the fix, remove or update these overrides so they do not keep the old API or web image pinned.
-
-From the deployment checkout, pull and start the stack:
-
-```bash
-git pull --ff-only
-python3 deploy/bin/prepare-discovery.py
-./deploy/bin/compose.sh config --quiet
-./deploy/bin/compose.sh pull
-./deploy/bin/compose.sh up -d --no-build
-python3 deploy/bin/install-project-firewall.py
-./deploy/bin/compose.sh up -d --no-build --wait --wait-timeout 180
-./deploy/bin/compose.sh exec -T nginx nginx -t
-./deploy/bin/compose.sh exec -T nginx nginx -s reload
-```
-
-Preflight refreshes the detected LAN address before MinIO binds port 9000. This matters when moving the host between networks. Keep the existing database and storage volumes. For a fresh deployment, run migrations and seeds as described earlier before using imports.
-
-`clamav_signatures` initializes a new `clamav-data` volume with signature files bundled in the pinned official ClamAV image, then runs FreshClam to update them. The API and media sanitizer mount the database read-only and wait for initialization. The updater has outbound networking and publishes no host port. The API remains on the internal discovery network. Upload scanning stays required.
-
-Check services and perform a real upload:
-
-```bash
-./deploy/bin/compose.sh ps -a
-./deploy/bin/compose.sh logs --tail=50 clamav_signatures
-./deploy/bin/compose.sh logs --tail=50 excel_processor outbox_relay
-./deploy/bin/compose.sh exec -T api_geteway ruby -I /app/lib -e 'require "api_geteway/media/sanitizers/virus_scanner"; p APIGeteway::Media::Sanitizers::VirusScanner.scan("/etc/hostname")'
-```
-
-The last command should report `clean: true`. Sign in as the initial super administrator, open `/admin/excel_imports`, and drop one real `.xls` or `.xlsx` workbook, up to 20 MiB. A successful upload returns HTTP 201 and queues processing. The list then reports the parsing result. A valid Excel container can still be rejected by the parser if its sheets do not match the supported curriculum format; service health alone does not validate that format.
-
-If the page reports an error, inspect the corresponding logs:
-
-```bash
-./deploy/bin/compose.sh logs --since=10m nginx schedule_web api_geteway
-./deploy/bin/compose.sh logs --since=10m excel_processor outbox_relay
-```
-
-- HTTP 403 on `/session` or `/admin/`: use the LAN address or configure localhost access using the section above.
-- `VirusScanner: ClamAV not found`: verify `API_IMAGE` points to the corrected image and recreate the API container.
-- Scanner database/load errors: check `clamav_signatures` health and its database volume. Do not disable scanning to bypass the failure.
-- FreshClam 403/429: the update CDN may block the network or impose a cooldown. Bundled signatures allow initial scanning, but healthy initialization does not prove current signatures. Respect the logged cooldown, restore permitted CDN access, and verify successful updates before relying on the deployment for ongoing production use. Review the [official FreshClam troubleshooting guidance](https://docs.clamav.net/faq/faq-freshclam.html). Changing the pinned ClamAV image alone does not overwrite an existing signature database.
-- Upload accepted but processing does not finish: check `excel_processor`, `outbox_relay`, Redis discovery and worker logs. Restart a stopped worker with `./deploy/bin/compose.sh up -d --no-build excel_processor outbox_relay`; do not rerun seeds or delete volumes.
-
-## 12. Consul reports `Check missed TTL` for the web service
-
-This warning means the previous TTL check did not receive a heartbeat within 15 seconds. It does not, by itself, prove the web process crashed. A brief warning during restart, host suspension or dependency recovery may be transient. Repeated warnings with a running web container require checking readiness and discovery registration.
-
-The updated Ruby discovery helper registers HTTP checks for services that expose `DISCOVERY_HEALTH_PATH`, including `schedule-web`. Consul probes each container's `/readyz` every five seconds with a three-second timeout. It no longer relies on the web application's Ruby heartbeat thread. Services without an HTTP health endpoint retain TTL checks based on their worker progress. Registration errors log their exception class without exposing tokens.
-
-Apply this infrastructure update on the deployment server:
-
-```bash
-git pull --ff-only
-./deploy/bin/compose.sh config --quiet
-./deploy/bin/compose.sh restart schedule_web
-./deploy/bin/compose.sh up -d --no-build --wait --wait-timeout 180
-```
-
-The helper is mounted from `deploy/discovery`, so this change needs no image rebuild. Restarting the web containers reloads it and replaces the old TTL check with an HTTP check under the same service ID. Initial HTTP checks can briefly be critical until startup completes. Do not delete Consul data, disable health checks, or manually force checks to passing.
-
-Inspect the actual web checks using the service's existing token inside its container:
-
-```bash
-./deploy/bin/compose.sh exec -T schedule_web ruby -r milk_discovery -e 'MilkDiscovery.request("/v1/health/service/schedule-web").each { |r| puts({id:r["Service"]["ID"],checks:r["Checks"].map { |c| [c["Type"],c["Status"]] }}.to_json) }'
-./deploy/bin/compose.sh logs --since=10m consul schedule_web
-curl --fail http://localhost/
-```
-
-Each active web replica should have an `http` check with status `passing`. Docker's `/up` check only proves the process is alive; Consul's `/readyz` also checks whether the application can use Redis and the API. If the HTTP check stays critical, examine those dependencies and the web logs. A registration rejection can indicate mismatched or unreadable discovery tokens; preserve the matching generated tokens and Consul data across updates.
-
-See the [official Consul health-check documentation](https://developer.hashicorp.com/consul/docs/register/health-check/vm) for the distinction between TTL and HTTP checks.
-
-### Registration fails with `Socket::ResolutionError`
-
-The HTTP-check change alone does not fix a failure to resolve the `consul` hostname. Affected Ruby registration loops can stop refreshing the registration while Docker still reports the web process as healthy. The updated Compose configuration uses the automatically generated, fixed Consul address inside the Docker discovery network. This is not the host machine's address, and requires no manual IP configuration.
-
-Apply the updated Compose environment by recreating containers; `restart` alone does not apply it:
-
-```bash
-git pull --ff-only
-python3 deploy/bin/prepare-discovery.py
-./deploy/bin/compose.sh config --quiet
-./deploy/bin/compose.sh up -d --no-build
-python3 deploy/bin/install-project-firewall.py
-./deploy/bin/compose.sh up -d --no-build --wait --wait-timeout 180
-```
-
-Then check the web registrations using the command in section 12. Each active replica must have an `http` check with status `passing`, and `http://localhost` should return HTTP 200. Empty registration results are a failure even when Docker reports healthy containers. Capture recent Consul and web logs if checks do not recover. No new Docker Hub image is required for this Compose/discovery update. Preserve existing secrets and data volumes.

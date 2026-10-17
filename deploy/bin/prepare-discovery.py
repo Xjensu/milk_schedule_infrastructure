@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Generate host-specific ingress policy and private Consul credentials."""
+"""Generate host-specific ingress policy (legacy filename retained for upgrades)."""
 import ipaddress
 import json
 import os
 import re
 import shlex
 import subprocess
-import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -91,30 +90,7 @@ def write(name, content, mode=0o600):
     path.write_text(content)
     os.chmod(path, mode)
 
-services = ["schedule-web", "api-geteway", "scheduler", "ops-console", "outbox-relay", "media-sanitizer",
-            "notice-export-worker", "schedule-generation-worker", "excel-processor", "postgres", "redis", "minio", "nginx", "minio-init"]
-for service in ["consul-management", *services]:
-    path = OUT / (service + ".token")
-    if not path.exists():
-        write(path.name, str(uuid.uuid4()) + "\n", 0o444)
-management = (OUT / "consul-management.token").read_text().strip()
-write("consul.hcl", f'''datacenter = "milk"
-node_name = "milk-consul"
-server = true
-bootstrap_expect = 1
-data_dir = "/consul/data"
-client_addr = "0.0.0.0"
-bind_addr = "0.0.0.0"
-ui_config {{ enabled = false }}
-log_level = "warn"
-acl {{
-  enabled = true
-  default_policy = "deny"
-  enable_token_persistence = true
-  tokens {{ initial_management = "{management}" agent = "{management}" }}
-}}
-''', 0o444)
-write("compose.env", f"LAN_BIND_IP={selected.ip}\nLAN_CIDR={cidrs[0]}\nLAN_CIDRS={','.join(str(n) for n in cidrs)}\nDISCOVERY_SUBNET={discovery}\nDISCOVERY_IP_RANGE={list(discovery.subnets(prefixlen_diff=1))[1]}\nINGRESS_IP={discovery.network_address + 2}\nCONSUL_IP={discovery.network_address + 3}\n", 0o600)
+write("compose.env", f"LAN_BIND_IP={selected.ip}\nLAN_CIDR={cidrs[0]}\nLAN_CIDRS={','.join(str(n) for n in cidrs)}\nDISCOVERY_SUBNET={discovery}\nDISCOVERY_IP_RANGE={list(discovery.subnets(prefixlen_diff=1))[1]}\nINGRESS_IP={discovery.network_address + 2}\n", 0o600)
 # LAN policy uses Nginx's direct peer address; Docker networks are never allowlisted.
 write("lan.geo", "geo $trusted_lan {\n  default 0;\n" + "".join(f"  {net} 1;\n" for net in cidrs) + "  127.0.0.1/32 1;\n}\n", 0o444)
 write("network.json", json.dumps({"interface": name, "address": str(selected.ip), "cidrs": [str(n) for n in cidrs],
