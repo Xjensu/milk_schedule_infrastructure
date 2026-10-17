@@ -1,13 +1,14 @@
-For the current single-host production release, use [the simplified deployment runbook](deploy/SIMPLIFIED_DEPLOYMENT_2026-10-17.md). It replaces the older Consul-based startup instructions.
+For a new empty installation after removing containers/images, use [the clean-install guide](deploy/CLEAN_INSTALL_2026-10-17.md). To preserve an existing installation's data, use [the upgrade runbook](deploy/SIMPLIFIED_DEPLOYMENT_2026-10-17.md).
 
 # Milk Schedule
 
-The application uses a Rails web interface, a Hanami API, Python Excel and scheduling workers, PostgreSQL, Redis, MinIO, Consul discovery and Nginx.
+The application uses a Rails web interface, a Hanami API, Python Excel and scheduling workers, PostgreSQL, Redis, MinIO and Nginx with Compose DNS.
 
 Build custom images on a workstation, push them to Docker Hub, then run the server from those images. The server needs Docker, the Compose plugin, Python 3 and a clone of this main repository; it does not need application source, Ruby, Node.js or a compiler.
 
-- [Deployment guide](deploy/DEPLOYMENT_GUIDE.md): building, publishing, first installation, environment configuration, updates, backups and rollback.
-- [Discovery and network policy](deploy/SERVICE_DISCOVERY.md).
+- [Clean installation](deploy/CLEAN_INSTALL_2026-10-17.md): published images, fresh credentials, migrations, initial administrator and startup verification.
+- [Existing installation update](deploy/SIMPLIFIED_DEPLOYMENT_2026-10-17.md): migration from the old topology, backups, monitoring and rollback.
+- [Historical build/deployment guide](deploy/DEPLOYMENT_GUIDE.md).
 - [Optional monitoring](deploy/observability/README.md).
 - [Database operations console](deploy/ops/README.md).
 

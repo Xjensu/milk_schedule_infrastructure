@@ -27,6 +27,7 @@ files = [
     "docker-compose.yml", ".env.compose.example", ".env.example", "README.md",
     "deploy/DEPLOYMENT_GUIDE.md", "deploy/SERVICE_DISCOVERY.md",
     "deploy/SIMPLIFIED_DEPLOYMENT_2026-10-17.md",
+    "deploy/CLEAN_INSTALL_2026-10-17.md",
     "deploy/antivirus/update-signatures.sh", "deploy/antivirus/check-signatures.sh",
     "deploy/antivirus/freshclam.conf.example", "deploy/antivirus/compose.mirror.yml",
     "deploy/ops/.env.example", "deploy/ops/README.md", "deploy/edge/denylist.geo",

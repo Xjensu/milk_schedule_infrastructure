@@ -1,4 +1,4 @@
-> Superseded for the 2026-10-17 simplified release: use [the current deployment runbook](SIMPLIFIED_DEPLOYMENT_2026-10-17.md). The instructions below describe the older Consul deployment.
+> Superseded: use [clean installation](CLEAN_INSTALL_2026-10-17.md) for a new empty deployment or [the upgrade runbook](SIMPLIFIED_DEPLOYMENT_2026-10-17.md) to preserve existing data. The instructions below describe the older Consul deployment.
 
 # Deploy from GitHub using Docker Hub images
 

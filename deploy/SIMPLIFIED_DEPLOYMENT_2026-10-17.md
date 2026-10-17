@@ -1,5 +1,7 @@
 # Single-host deployment and descriptor repair — 2026-10-17
 
+For an empty installation after deleting containers/images, follow [the clean-install guide](CLEAN_INSTALL_2026-10-17.md), including migrations and initial seeding.
+
 This runbook supersedes the October 16 repair guide for this release. It upgrades an existing installation without deleting PostgreSQL, MinIO, Redis or antivirus data. Commands run from the existing infrastructure checkout on the server; Docker commands use `sudo`.
 
 ## What changes
