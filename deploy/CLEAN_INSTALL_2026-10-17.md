@@ -10,7 +10,7 @@ Deleting images and containers does not necessarily delete volumes or `storage/r
 
 Use an amd64/x86_64 Linux server. These published images have been verified on amd64; an ARM server needs a separately verified image build.
 
-Required: Docker Engine 25+ with the Compose plugin 2.20.2+ (or newer), Git, Python 3, `iproute2` and `iptables`. The firewall helper expects Docker's iptables backend and `DOCKER-USER` chain. Docker must already be running.
+Required: a systemd Linux host for automatic recovery, Docker Engine 25+ with the Compose plugin 2.20.2+ (or newer), Git, Python 3, `iproute2` and `iptables`. The firewall helper expects Docker's iptables backend and `DOCKER-USER` chain. Docker must already be running.
 
 On Ubuntu/Debian, install the small host utilities if missing:
 
@@ -43,8 +43,8 @@ Run as your normal deployment user. The destination below must not already exist
 cd "$HOME"
 git clone --branch main --single-branch \
   https://github.com/Xjensu/milk_schedule_infrastructure.git \
-  milk-schedule-clean-20261017
-cd "$HOME/milk-schedule-clean-20261017"
+  milk-schedule-clean-20261019
+cd "$HOME/milk-schedule-clean-20261019"
 git rev-parse HEAD
 test -f deploy/CLEAN_INSTALL_2026-10-17.md
 ```
@@ -70,12 +70,12 @@ import re
 p = Path('.env.local')
 text = p.read_text()
 text = re.sub(r'^COMPOSE_PROJECT_NAME=.*$',
-              'COMPOSE_PROJECT_NAME=milk_schedule_20261017', text, flags=re.M)
+              'COMPOSE_PROJECT_NAME=milk_schedule_20261019', text, flags=re.M)
 p.write_text(text)
 p.chmod(0o600)
 PY
 sudo docker volume ls \
-  --filter label=com.docker.compose.project=milk_schedule_20261017 \
+  --filter label=com.docker.compose.project=milk_schedule_20261019 \
   --format '{{.Name}}'
 ```
 
@@ -90,7 +90,7 @@ nano .env.local
 Verify this release selection:
 
 ```dotenv
-COMPOSE_PROJECT_NAME=milk_schedule_20261017
+COMPOSE_PROJECT_NAME=milk_schedule_20261019
 IMAGE_NAMESPACE=xjensu
 IMAGE_TAG=2026-10-12-1
 WEB_IMAGE=xjensu/table-bsut-by:2026-10-17-1
@@ -191,6 +191,17 @@ sudo python3 deploy/bin/install-project-firewall.py
 sudo python3 deploy/bin/install-recovery.py
 sudo ./deploy/bin/compose.sh ps -a
 ```
+
+The recovery installer must succeed and prints a `milk-recovery-…` unit name. Replace `<name>` below with that printed name:
+
+```bash
+sudo python3 deploy/bin/recover-services.py --dry-run
+sudo systemctl is-enabled <name>.timer
+sudo systemctl is-active <name>.timer
+sudo journalctl -u <name>.service --since=10m --no-pager -n 30
+```
+
+Expect `enabled` and `active`. The one-shot service can be inactive between checks; the timer stays active. Its first sweep can wait up to 90 seconds. A dry-run alone does not install the timer. If the host has no systemd, use the explicit host-scheduler alternative in [the recovery guide](FAILOVER_2026-10-19.md).
 
 The website uses one Rails replica by default. The scheduler, Excel worker, outbox relay, media sanitizer, notice exporter and schedule-generation worker remain because they provide application functions. No Consul registry or Python ingress supervisor runs.
 
@@ -304,7 +315,7 @@ Do not seed or regenerate credentials on every restart. After a complete new ins
 | Excel worker restarts | Confirm `EXCEL_IMAGE=...:2026-10-17-1`, database readiness and worker logs. |
 | Firewall installation fails | Docker iptables backend, `DOCKER-USER`, privileges and running Nginx/MinIO. |
 
-For an existing installation with data to preserve, use [the upgrade runbook](SIMPLIFIED_DEPLOYMENT_2026-10-17.md), not new credentials/project volumes.
+For an existing installation with data to preserve, use [the current update procedure](DEPLOYMENT_GUIDE.md), not new credentials/project volumes.
 
 ## Recovery and failover
 
