@@ -1,3 +1,5 @@
+For the current API/edge release and automatic recovery setup, follow [the October 19 update guide](FAILOVER_2026-10-19.md) after the base simplification described below.
+
 # Single-host deployment and descriptor repair — 2026-10-17
 
 For an empty installation after deleting containers/images, follow [the clean-install guide](CLEAN_INSTALL_2026-10-17.md), including migrations and initial seeding.

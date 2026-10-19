@@ -7,12 +7,14 @@ x-logging: &id001
     max-file: '3'
 services:
   scheduler:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${IMAGE_NAMESPACE:-xjensu}/table-scheduler:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}
     container_name: milk_schedule_scheduler
     environment:
       NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
       TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
-      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      WORKER_HEARTBEAT_MAX_AGE: ${WORKER_HEARTBEAT_MAX_AGE:-1200}
       DISCOVERY_ENABLED: '0'
       SCHEDULE_PROGRESS_API_URL: http://api_geteway:2300/admin/internal/schedule_generation_runs
     networks:
@@ -35,6 +37,8 @@ services:
     cpus: 1.0
     mem_limit: 2g
   schedule_web:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${WEB_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-bsut-by:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     ulimits:
       nofile:
@@ -46,7 +50,7 @@ services:
       RAILS_ENV: production
       NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
       TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
-      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      WORKER_HEARTBEAT_MAX_AGE: ${WORKER_HEARTBEAT_MAX_AGE:-1200}
       DISCOVERY_ENABLED: '0'
       API_GETEWAY_URL: http://api_geteway:2300
     depends_on:
@@ -75,6 +79,8 @@ services:
       # One replica by default; an existing explicit WEB_REPLICAS remains authoritative.
       replicas: ${WEB_REPLICAS:-1}
   api_geteway:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: api_geteway
     networks:
@@ -85,7 +91,7 @@ services:
       AVRO_SCHEMA_DIR: /schemas/avro
       NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
       TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
-      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      WORKER_HEARTBEAT_MAX_AGE: ${WORKER_HEARTBEAT_MAX_AGE:-1200}
       HANAMI_ENV: production
       RACK_ENV: production
       DISCOVERY_ENABLED: '0'
@@ -125,6 +131,8 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
   ops_console:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: milk_schedule_ops_console
     command:
@@ -143,7 +151,7 @@ services:
       OPS_CONSOLE_PORT: '8090'
       NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
       TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
-      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      WORKER_HEARTBEAT_MAX_AGE: ${WORKER_HEARTBEAT_MAX_AGE:-1200}
       DISCOVERY_ENABLED: '0'
       POSTGRES_HOST: db
       POSTGRES_PORT: '5432'
@@ -185,6 +193,8 @@ services:
     profiles:
     - operations
   outbox_relay:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: outbox_relay
     env_file:
@@ -195,7 +205,7 @@ services:
       OUTBOX_STREAM_KEY: schedule:event_outbox
       OUTBOX_STREAM_MAXLEN: '100000'
       TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
-      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      WORKER_HEARTBEAT_MAX_AGE: ${WORKER_HEARTBEAT_MAX_AGE:-1200}
       HANAMI_ENV: production
       RACK_ENV: production
       DISCOVERY_ENABLED: '0'
@@ -219,18 +229,22 @@ services:
     - exec
     - ruby
     - bin/outbox_relay
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - kill -0 1
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-      start_interval: 2s
     networks:
     - discovery
+    healthcheck:
+      test:
+      - CMD
+      - ruby
+      - -e
+      - 'exit(File.file?("/tmp/milk-worker-heartbeat") && Time.now - File.mtime("/tmp/milk-worker-heartbeat") < Integer(ENV.fetch("WORKER_HEARTBEAT_MAX_AGE", "1200")) ? 0 : 1)'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
   media_sanitizer:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: media_sanitizer
     env_file:
@@ -247,7 +261,7 @@ services:
       MEDIA_IMAGE_MAX_PIXELS: '100000000'
       NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
       TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
-      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      WORKER_HEARTBEAT_MAX_AGE: ${WORKER_HEARTBEAT_MAX_AGE:-1200}
       HANAMI_ENV: production
       RACK_ENV: production
       DISCOVERY_ENABLED: '0'
@@ -280,7 +294,20 @@ services:
     - bin/media_sanitizer
     networks:
     - discovery
+    healthcheck:
+      test:
+      - CMD
+      - ruby
+      - -e
+      - 'exit(File.file?("/tmp/milk-worker-heartbeat") && Time.now - File.mtime("/tmp/milk-worker-heartbeat") < Integer(ENV.fetch("WORKER_HEARTBEAT_MAX_AGE", "1200")) ? 0 : 1)'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
   notice_export_worker:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: notice_export_worker
     env_file:
@@ -289,7 +316,7 @@ services:
       AVRO_SCHEMA_DIR: /schemas/avro
       NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
       TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
-      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      WORKER_HEARTBEAT_MAX_AGE: ${WORKER_HEARTBEAT_MAX_AGE:-1200}
       HANAMI_ENV: production
       RACK_ENV: production
       DISCOVERY_ENABLED: '0'
@@ -315,7 +342,20 @@ services:
     - bin/notice_export_worker
     networks:
     - discovery
+    healthcheck:
+      test:
+      - CMD
+      - ruby
+      - -e
+      - 'exit(File.file?("/tmp/milk-worker-heartbeat") && Time.now - File.mtime("/tmp/milk-worker-heartbeat") < Integer(ENV.fetch("WORKER_HEARTBEAT_MAX_AGE", "1200")) ? 0 : 1)'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
   schedule_generation_worker:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${API_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-api:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: schedule_generation_worker
     env_file:
@@ -327,7 +367,7 @@ services:
       SCHEDULE_GENERATION_BATCH_SIZE: '1'
       NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
       TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
-      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      WORKER_HEARTBEAT_MAX_AGE: ${WORKER_HEARTBEAT_MAX_AGE:-1200}
       HANAMI_ENV: production
       RACK_ENV: production
       DISCOVERY_ENABLED: '0'
@@ -353,6 +393,17 @@ services:
     - exec
     - ruby
     - bin/schedule_generation_worker
+    healthcheck:
+      test:
+      - CMD
+      - ruby
+      - -e
+      - 'exit(File.file?("/tmp/milk-worker-heartbeat") && Time.now - File.mtime("/tmp/milk-worker-heartbeat") < Integer(ENV.fetch("WORKER_HEARTBEAT_MAX_AGE", "1200")) ? 0 : 1)'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
   clamav_signatures:
     image: ${CLAMAV_IMAGE:-clamav/clamav@sha256:ebec5bc138401b36ae987caa1a3fa3c3b2a21ed3d51f0bfa5852825e663e67b0}
     entrypoint:
@@ -378,6 +429,8 @@ services:
       start_period: 30s
       start_interval: 2s
   excel_processor:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${EXCEL_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/excel-processor:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     container_name: excel_processor
     env_file:
@@ -386,7 +439,7 @@ services:
       AVRO_SCHEMA_DIR: /schemas/avro
       NOTICE_EXPORT_PUBLIC_ENDPOINT: ${NOTICE_EXPORT_PUBLIC_ENDPOINT:-http://${LAN_BIND_IP:?Run preflight}:9000}
       TRUSTED_PROXIES: ${INGRESS_IP:?Run preflight}/32
-      WORKER_HEARTBEAT_MAX_AGE: '1200'
+      WORKER_HEARTBEAT_MAX_AGE: ${WORKER_HEARTBEAT_MAX_AGE:-1200}
       DISCOVERY_ENABLED: '0'
       POSTGRES_HOST: db
       POSTGRES_PORT: '5432'
@@ -416,7 +469,16 @@ services:
     - python migrations/apply_migrations.py && python run.py
     networks:
     - discovery
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
   db:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${POSTGRES_IMAGE:-pgrouting/pgrouting:15-3.5-develop}
     restart: unless-stopped
     container_name: postgres
@@ -436,6 +498,8 @@ services:
       start_period: 10s
       start_interval: 2s
   redis:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${REDIS_IMAGE:-redis:7-alpine}
     container_name: redis
     restart: unless-stopped
@@ -457,6 +521,8 @@ services:
       timeout: 3s
       retries: 5
   minio:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${MINIO_IMAGE:-xjensu/table-minio@sha256:a1a8bd4ac40ad7881a245bab97323e18f971e4d4cba2c2007ec1bedd21cbaba2}
     restart: unless-stopped
     container_name: hanami_minio
@@ -500,6 +566,8 @@ services:
     volumes:
     - ./deploy/discovery/python/minio_init.py:/opt/discovery/python/minio_init.py:ro
   nginx:
+    labels:
+      by.bsut.recovery: unhealthy
     image: ${EDGE_IMAGE:-${IMAGE_NAMESPACE:-xjensu}/table-edge:${IMAGE_TAG:?Set IMAGE_TAG in .env.local}}
     ulimits:
       nofile:
@@ -516,11 +584,12 @@ services:
       edge: {}
     restart: unless-stopped
     logging: *id001
-    depends_on:
-      schedule_web:
-        condition: service_healthy
-      api_geteway:
-        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -T, '3', -O, /dev/null, 'http://127.0.0.1/_edge/live']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 volumes:
   clamav-data: {}
   postgres-data: null

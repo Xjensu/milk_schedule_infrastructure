@@ -14,6 +14,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("tag", help="The immutable tag used to build/push this release")
 parser.add_argument("--namespace", default="xjensu", help="Registry namespace used for the build")
 parser.add_argument("--base-tag", help="Tag retained for unchanged scheduler images (defaults to the release tag)")
+for component in ("web", "minio-init", "excel"):
+    parser.add_argument(f"--{component}-tag", help="Retain a published tag for this unchanged component")
 args = parser.parse_args()
 if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", args.tag):
     parser.error("invalid Docker image tag")
@@ -28,16 +30,17 @@ files = [
     "deploy/DEPLOYMENT_GUIDE.md", "deploy/SERVICE_DISCOVERY.md",
     "deploy/SIMPLIFIED_DEPLOYMENT_2026-10-17.md",
     "deploy/CLEAN_INSTALL_2026-10-17.md",
+    "deploy/FAILOVER_2026-10-19.md",
     "deploy/antivirus/update-signatures.sh", "deploy/antivirus/check-signatures.sh",
     "deploy/antivirus/freshclam.conf.example", "deploy/antivirus/compose.mirror.yml",
     "deploy/ops/.env.example", "deploy/ops/README.md", "deploy/edge/denylist.geo",
     *["deploy/bin/" + name for name in (
         "compose.sh", "db.sh", "init-env.py", "prepare-discovery.py", "deploy-discovery.sh", "deploy.sh",
-        "rails-fd-report.rb", "retire-discovery.py",
+        "rails-fd-report.rb", "retire-discovery.py", "recover-services.py", "install-recovery.py",
         "install-project-firewall.py", "project-firewall.py")],
 ]
 for pattern in (
-    "deploy/discovery/python/*.py", "deploy/discovery/ruby/*.rb", "schemas/avro/*.avsc",
+    "deploy/image-releases/*.json", "deploy/discovery/python/*.py", "deploy/discovery/ruby/*.rb", "schemas/avro/*.avsc",
     "schemas/protobuf/*.proto", "deploy/observability/**/*.yml",
     "deploy/observability/**/*.json", "deploy/observability/**/*.conf",
 ):
@@ -48,6 +51,13 @@ overrides = {key: f"{args.namespace}/{image}:{args.tag}" for key, image in (
     ("WEB_IMAGE", "table-bsut-by"), ("API_IMAGE", "table-api"),
     ("EDGE_IMAGE", "table-edge"), ("MINIO_INIT_IMAGE", "table-minio-init"),
     ("EXCEL_IMAGE", "excel-processor"))}
+for argument, key, image in ((args.web_tag, "WEB_IMAGE", "table-bsut-by"),
+                             (args.minio_init_tag, "MINIO_INIT_IMAGE", "table-minio-init"),
+                             (args.excel_tag, "EXCEL_IMAGE", "excel-processor")):
+    if argument:
+        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", argument):
+            parser.error("invalid retained component tag")
+        overrides[key] = f"{args.namespace}/{image}:{argument}"
 environment = {**os.environ, "IMAGE_TAG": base_tag, "IMAGE_NAMESPACE": args.namespace,
                "LAN_BIND_IP": "127.0.0.1", "INGRESS_IP": "172.30.0.2",
                "DISCOVERY_SUBNET": "172.30.0.0/24", "DISCOVERY_IP_RANGE": "172.30.0.128/25",

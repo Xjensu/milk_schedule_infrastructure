@@ -1,3 +1,5 @@
+Current incremental release: [October 19 outage handling and recovery](FAILOVER_2026-10-19.md).
+
 > Superseded: use [clean installation](CLEAN_INSTALL_2026-10-17.md) for a new empty deployment or [the upgrade runbook](SIMPLIFIED_DEPLOYMENT_2026-10-17.md) to preserve existing data. The instructions below describe the older Consul deployment.
 
 # Deploy from GitHub using Docker Hub images

@@ -1,0 +1,68 @@
+{
+  "release": "2026-10-19-1",
+  "infrastructure_branch": "main",
+  "images": {
+    "xjensu/table-bsut-by:2026-10-17-1": {
+      "digest": "xjensu/table-bsut-by@sha256:1e5484eba8bc4273ed9313bc04b9474b06d6260dd86498547af2dbb466550dee",
+      "architecture": "amd64"
+    },
+    "xjensu/table-minio-init:2026-10-17-1": {
+      "digest": "xjensu/table-minio-init@sha256:ea668a77fe315d14cf5a960ef98cb41c6218ace60bd87268043189c870b8baec",
+      "architecture": "amd64"
+    },
+    "xjensu/excel-processor:2026-10-17-1": {
+      "digest": "xjensu/excel-processor@sha256:9e4f6ed8001f4d75f46c26d1ea200e03410fcdb566804cbc8f47f5d340247a17",
+      "architecture": "amd64"
+    },
+    "xjensu/table-api:2026-10-19-1": {
+      "digest": "xjensu/table-api@sha256:b20d58236bf57972a160f55ae0c254a6823f36f0f4449f812c084edf8049cc10",
+      "architecture": "amd64"
+    },
+    "xjensu/table-edge:2026-10-19-1": {
+      "digest": "xjensu/table-edge@sha256:de4fce58100d4bd106df781c919b4fb7afc2871ba5196ac727bbbc41ec26cc4b",
+      "architecture": "amd64"
+    }
+  },
+  "unchanged_scheduler_image": "xjensu/table-scheduler:2026-10-12-1",
+  "source": {
+    "schedule_web": "1646796d620e98b9200a0080e0b172e5e2b67018",
+    "api_geteway": "c188f027e4243ceb978e15b98a44d4eb45d6d1c1",
+    "excel_processor": "deefab66251279101d991d87d8de9d8a923e7dbb"
+  },
+  "edge_source_sha256": {
+    "deploy/edge/.dockerignore": "f808406c08ba8ae714c16b84f2e00adeb21de6ff0caa6844b932cedd33db3236",
+    "deploy/edge/Dockerfile": "43da69a10f7f18ffdc6fe6715de99565563a59b901af88574efcc7f0eec1f6b9",
+    "deploy/edge/denylist.geo": "91fe0d48d64dacd225be496ca4fc46c0014227b7761d31a81e8b9263d325209f",
+    "deploy/edge/errors/outage.css": "7c51e51b8970e972eeed0b0aa7c0fe069b2245658d72f169c47316e8649b4cd8",
+    "deploy/edge/errors/outage.js": "195af33360a2f222c4f716f7c91f7d0798299f536ea6e4ef438a1aa25a06c6b0",
+    "deploy/edge/errors/unavailable.html": "bdd10bc072b47526acf2d67e2ce7785d7e8ea55fd2a263d3e6bb11d27804e31d",
+    "deploy/edge/nginx.conf": "5326a1ea0f83af71436374789f97395974215adcee405045b21c0aa98b2dad3a",
+    "deploy/edge/upstreams.conf": "f5018f1f6e33330d1c151264784c4bded97ae5f5ac8d42e2ad0a971c60f2ce94",
+    "deploy/edge/upstreams.ctmpl": "916d2603ad69d1c3e45bca074ecb580adb689d9d41c093b04db80859e5104749"
+  },
+  "verification": {
+    "isolated_fresh_database_migrate_seed": true,
+    "non_antivirus_long_running_healthy": 12,
+    "backend_absence_html_json": true,
+    "post_error_page_without_replay": true,
+    "safe_read_replica_failover": true,
+    "docker_dns_recovery": true,
+    "real_unhealthy_restart": true,
+    "restart_budget_dependency_stop_isolation_checks": true,
+    "completed_poll_heartbeats": 4,
+    "heartbeat_fd_writes": 1000,
+    "browser_viewports": [
+      [
+        1440,
+        1000
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "systemd_units_validated": true,
+    "production_server_deployed": false,
+    "av_cdn_download_verified": false
+  }
+}

@@ -1,3 +1,5 @@
+Current release: **2026-10-19-1**. See [outage handling and automatic recovery](deploy/FAILOVER_2026-10-19.md).
+
 For a new empty installation after removing containers/images, use [the clean-install guide](deploy/CLEAN_INSTALL_2026-10-17.md). To preserve an existing installation's data, use [the upgrade runbook](deploy/SIMPLIFIED_DEPLOYMENT_2026-10-17.md).
 
 # Milk Schedule
