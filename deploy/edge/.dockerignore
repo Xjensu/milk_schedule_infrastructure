@@ -3,3 +3,6 @@
 !nginx.conf
 !upstreams.conf
 !denylist.geo
+
+!errors/
+!errors/**

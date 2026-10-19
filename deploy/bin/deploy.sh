@@ -11,6 +11,7 @@ deploy/bin/compose.sh up -d --no-build minio_init
 deploy/bin/db.sh migrate
 deploy/bin/compose.sh up -d --no-build
 python3 deploy/bin/install-project-firewall.py
+python3 deploy/bin/install-recovery.py
 # Signature freshness is reported separately: CDN outages must not block page availability.
 for service in api_geteway schedule_web; do
   case "$service" in api_geteway) port=2300 ;; schedule_web) port=3000 ;; esac

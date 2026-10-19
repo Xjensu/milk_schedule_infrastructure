@@ -1,4 +1,4 @@
-# Clean installation of the simplified release — 2026-10-17-1
+# Clean installation of the simplified release — 2026-10-19-1
 
 Follow this guide after removing the previous application containers and images, or on a new Linux server. Everything runs from published images: no application source checkout, Docker builds, Ruby, Node.js or Python virtual environment is required on the server.
 
@@ -41,7 +41,7 @@ Run as your normal deployment user. The destination below must not already exist
 
 ```bash
 cd "$HOME"
-git clone --branch codex/simple-deployment-2026-10-17 --single-branch \
+git clone --branch main --single-branch \
   https://github.com/Xjensu/milk_schedule_infrastructure.git \
   milk-schedule-clean-20261017
 cd "$HOME/milk-schedule-clean-20261017"
@@ -49,7 +49,7 @@ git rev-parse HEAD
 test -f deploy/CLEAN_INSTALL_2026-10-17.md
 ```
 
-Use the branch above, not an older default branch or the previous Consul release. If GitHub requires authentication, use your authorized Git credentials; the SSH equivalent is `git@github.com:Xjensu/milk_schedule_infrastructure.git`.
+Use the current `main` branch, which includes the October 19 outage/recovery release. If GitHub requires authentication, use your authorized Git credentials; the SSH equivalent is `git@github.com:Xjensu/milk_schedule_infrastructure.git`.
 
 No nested `apps/` repositories are needed. The server will pull the five updated images plus their existing dependencies.
 
@@ -94,8 +94,8 @@ COMPOSE_PROJECT_NAME=milk_schedule_20261017
 IMAGE_NAMESPACE=xjensu
 IMAGE_TAG=2026-10-12-1
 WEB_IMAGE=xjensu/table-bsut-by:2026-10-17-1
-API_IMAGE=xjensu/table-api:2026-10-17-1
-EDGE_IMAGE=xjensu/table-edge:2026-10-17-1
+API_IMAGE=xjensu/table-api:2026-10-19-1
+EDGE_IMAGE=xjensu/table-edge:2026-10-19-1
 MINIO_INIT_IMAGE=xjensu/table-minio-init:2026-10-17-1
 EXCEL_IMAGE=xjensu/excel-processor:2026-10-17-1
 WEB_REPLICAS=1
@@ -106,7 +106,7 @@ ASSUME_SSL=false
 FORCE_SSL=false
 ```
 
-`IMAGE_TAG` intentionally remains `2026-10-12-1` for the unchanged scheduler. The other five components use their explicit October 17 references. Do not set every image to the new tag: a new scheduler image was not published for this repair. Immutable digests are recorded in [the release manifest](image-releases/2026-10-17-1.json).
+`IMAGE_TAG` intentionally remains `2026-10-12-1` for the unchanged scheduler. API and edge use October 19 references; Rails, storage initialization and Excel retain October 17 references. Do not set every image to the new tag: a new scheduler image was not published for this repair. Immutable digests are recorded in [the release manifest](image-releases/2026-10-19-1.json).
 
 Also review:
 
@@ -188,6 +188,7 @@ If seeding reports an existing administrator on a supposedly empty installation,
 ```bash
 sudo ./deploy/bin/compose.sh up -d --no-build
 sudo python3 deploy/bin/install-project-firewall.py
+sudo python3 deploy/bin/install-recovery.py
 sudo ./deploy/bin/compose.sh ps -a
 ```
 
@@ -223,7 +224,7 @@ print('Administrator: http://' + network['address'] + '/admin/')
 PY
 ```
 
-Use your configured hostname instead if appropriate. This procedure uses `HTTP_PORT=80` throughout. A custom external port also requires the reverse proxy to preserve that port in forwarded host information and origins; that setup is outside this guide.
+Use your configured hostname instead if appropriate. This procedure uses `HTTP_PORT=80` throughout. The October 19 proxy also preserves explicit host ports; configure origins and external forwarding consistently if you choose another port.
 
 ## 9. Sign in and create the first application data
 
@@ -305,10 +306,16 @@ Do not seed or regenerate credentials on every restart. After a complete new ins
 
 For an existing installation with data to preserve, use [the upgrade runbook](SIMPLIFIED_DEPLOYMENT_2026-10-17.md), not new credentials/project volumes.
 
+## Recovery and failover
+
+See [the October 19 recovery guide](FAILOVER_2026-10-19.md) for restart limits, stalled-worker checks, optional Rails replicas, outage-page behavior and failure drills. Install the host timer as shown in step 7; Compose alone does not restart a container just because it becomes unhealthy.
+
 ## Verification of this guide
 
-Validated with published images and an isolated fresh project: no existing private configuration, new PostgreSQL/MinIO/antivirus volumes, a new Redis directory and generated credentials. Image pulls, dependency health, storage initialization, migrations, seed, database-version check, API/Rails readiness, Nginx validation, new administrator login and faculty creation/reload passed.
+The October 17 base installation was validated with published images and an isolated fresh project: no existing private configuration, new PostgreSQL/MinIO/antivirus volumes, a new Redis directory and generated credentials. Image pulls, dependency health, storage initialization, migrations, seed, database-version check, API/Rails readiness, Nginx validation, new administrator login and faculty creation/reload passed.
 
 For test isolation only, container names and host ports differed from the production examples; the test handled redirected URLs explicitly for the alternate port. Application entrypoints, database initialization and image versions were unchanged. Existing application data and shared firewall rules were not modified by that test. The test project's synthetic data was removed afterward.
 
 This does not claim a remote production deployment, complete workbook/notice-export acceptance or successful ClamAV CDN downloads. The externally imposed signature-download restriction remains subject to section 10.
+
+October 19 changes were additionally verified with isolated Nginx backend outages, mixed healthy/failing replicas, safe POST error handling, responsive browser checks and worker/recovery diagnostics. The updated full stack also passed fresh-database migrations/seeding and all 12 non-antivirus service healthchecks. See the recovery guide for the exact scope; full workbook and notice-export acceptance was not repeated.
