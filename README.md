@@ -1,16 +1,12 @@
-Current release: **2026-10-19-1**. See [outage handling and automatic recovery](deploy/FAILOVER_2026-10-19.md).
-
-For a new empty installation after removing containers/images, use [the clean-install guide](deploy/CLEAN_INSTALL_2026-10-17.md). To preserve an existing installation's data, use [the current deployment guide](deploy/DEPLOYMENT_GUIDE.md).
-
 # Milk Schedule
+
+Current release: **2026-10-19-1**. All deployment instructions are in [one deployment guide](deploy/DEPLOYMENT_GUIDE.md).
 
 The application uses a Rails web interface, a Hanami API, Python Excel and scheduling workers, PostgreSQL, Redis, MinIO and Nginx with Compose DNS.
 
 Build custom images on a workstation, push them to Docker Hub, then run the server from those images. The server needs Docker, the Compose plugin, Python 3 and a clone of this main repository; it does not need application source, Ruby, Node.js or a compiler.
 
-- [Clean installation](deploy/CLEAN_INSTALL_2026-10-17.md): published images, fresh credentials, migrations, initial administrator and startup verification.
-- [Current deployment guide](deploy/DEPLOYMENT_GUIDE.md): compatible images, existing-installation update, recovery timer verification and rollback.
-- [Migration from Consul](deploy/SIMPLIFIED_DEPLOYMENT_2026-10-17.md): the older topology migration with data preservation.
+- [Deployment guide](deploy/DEPLOYMENT_GUIDE.md): installation from zero, administrator setup, updates, Consul migration, automatic recovery, antivirus, diagnostics and rollback.
 - [Optional monitoring](deploy/observability/README.md).
 - [Database operations console](deploy/ops/README.md).
 
