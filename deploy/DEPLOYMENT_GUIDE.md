@@ -205,6 +205,7 @@ If seeding reports an existing administrator on a supposedly empty installation,
 sudo ./deploy/bin/compose.sh up -d --no-build
 sudo python3 deploy/bin/install-project-firewall.py
 sudo python3 deploy/bin/install-recovery.py
+sudo python3 deploy/bin/install-signature-refresh.py
 sudo ./deploy/bin/compose.sh ps -a
 ```
 
@@ -327,6 +328,7 @@ For the October 19 update from the simplified October 17 deployment, no business
 sudo ./deploy/bin/compose.sh up -d --no-build
 sudo python3 deploy/bin/install-project-firewall.py
 sudo python3 deploy/bin/install-recovery.py
+sudo python3 deploy/bin/install-signature-refresh.py
 sudo python3 deploy/bin/recover-services.py --dry-run
 sudo ./deploy/bin/compose.sh ps -a
 ```
@@ -406,6 +408,7 @@ Run from the persistent deployment checkout:
 
 ```bash
 sudo python3 deploy/bin/install-recovery.py
+sudo python3 deploy/bin/install-signature-refresh.py
 sudo python3 deploy/bin/recover-services.py --dry-run
 ```
 
@@ -447,6 +450,27 @@ If the restart budget is exhausted, inspect/fix the root cause and let the rolli
 
 ## E. Antivirus
 
+### E.1 Repair stale signatures while the CDN is blocked
+
+A persistent signature volume can retain an obsolete database even when containers are healthy. The new refresh helper downloads the three signed ClamAV CVD files from the [Microsoft-hosted mirror](https://packages.microsoft.com/clamav/), verifies their embedded ClamAV signatures using an official verifier image, and atomically installs only newer versions. It then checks the actual embedded build date against the unchanged three-day freshness limit. No timestamp changes, disabled scans or FreshClam cooldown resets are used.
+
+```bash
+sudo python3 deploy/bin/refresh-signatures.py
+sudo python3 deploy/bin/install-signature-refresh.py
+```
+
+Expect `Signature freshness: PASS`. The API/media scanners read the shared volume immediately; no API restart is needed. The installer prints `milk-signatures-…`; verify that timer with `sudo systemctl is-enabled <name>.timer`, `sudo systemctl is-active <name>.timer` and its service journal, as in section D. The timer refreshes every six hours. Conditional requests avoid repeatedly downloading unchanged databases; downloads have time/size bounds. The helper uses only this project's named signature volume and skips intentionally stopped/absent updater containers.
+
+`CLAMAV_DATABASE_MIRROR` defaults to `https://packages.microsoft.com/clamav`; configure another maintained HTTPS CVD mirror if required. Files from a mirror must still pass cryptographic verification and freshness checks. No uploaded user files or credentials are sent to the mirror. `CLAMAV_SEED_IMAGE` defaults to the official `clamav/clamav:1.5` non-base image; it supplies the verifier and signed bootstrap data. Its [preloaded databases](https://docs.clamav.net/manual/Installing/Docker.html) are a fallback, not a daily feed: upstream image database refreshes may be less frequent than the three-day acceptance limit. If the mirror is unavailable, the helper tries the verified image seed and fails closed if that data is stale. If the registry is unavailable, an already-cached official verifier image can still be used.
+
+Failures stay visible in the host service journal and do not relax required scanning. FreshClam continues its normal hourly attempts with its own cooldown state intact. The separate updater runtime image can stay pinned while the signed data feed advances.
+
+For a workstation without passwordless sudo, install this timer using `python3 deploy/bin/install-signature-refresh.py --user`, verify it with `systemctl --user`, and enable lingering using `loginctl enable-linger` if permitted so it survives logout/reboot. Do not install both user and system copies. Before moving/deleting the checkout, run the same installer with `--remove` (and `--user` for a user installation).
+
+On October 20, recovery first restored official-image daily version 28157 (October 18), then verified mirror version 28159 (October 20). Clean-file acceptance, EICAR rejection and a real administrator workbook upload were checked; the upload returned HTTP 201 and appeared in history. The synthetic empty workbook was removed; business-data import correctness was not inferred from that upload.
+
+### E.2 Freshness and scanner checks
+
 ```bash
 sudo ./deploy/bin/compose.sh logs --tail=100 clamav_signatures
 sudo ./deploy/bin/compose.sh exec -T clamav_signatures \
@@ -457,7 +481,7 @@ sudo ./deploy/bin/compose.sh exec -T media_sanitizer clamscan --version
 
 The freshness command must exit 0 for required scanning to proceed. The updater and API/sanitizer scanner binaries are separate; check their versions independently. The repair images do not upgrade the bundled scanner engine automatically.
 
-Your previously reported CDN 403/429 block is not repaired by deleting images, changing project names, or reinstalling. If the official CDN remains inaccessible, retain scanning requirements and configure an actual trusted, maintained mirror/proxy. Do not repeatedly force downloads, remove cooldown state as a workaround, or increase the age threshold to hide stale signatures.
+Your previously reported CDN 403/429 block is not repaired by deleting images, changing project names, or reinstalling. If the official CDN remains inaccessible, use the verified mirror refresh in E.1, or configure an actual trusted, maintained mirror/proxy. Do not repeatedly force downloads, remove cooldown state as a workaround, or increase the age threshold to hide stale signatures.
 
 An optional mirror configuration is supplied:
 
