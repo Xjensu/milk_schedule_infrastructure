@@ -34,6 +34,7 @@ files = [
     *["deploy/bin/" + name for name in (
         "compose.sh", "db.sh", "init-env.py", "prepare-discovery.py", "deploy-discovery.sh", "deploy.sh",
         "rails-fd-report.rb", "retire-discovery.py", "recover-services.py", "install-recovery.py",
+        "refresh-signatures.py", "install-signature-refresh.py",
         "install-project-firewall.py", "project-firewall.py")],
 ]
 for pattern in (

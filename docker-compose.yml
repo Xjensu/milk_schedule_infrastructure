@@ -415,6 +415,8 @@ services:
     - ./deploy/antivirus/check-signatures.sh:/opt/antivirus/check-signatures.sh:ro
     environment:
       CLAMAV_MAX_SIGNATURE_AGE_SECONDS: ${CLAMAV_MAX_SIGNATURE_AGE_SECONDS:-259200}
+      CLAMAV_SEED_IMAGE: ${CLAMAV_SEED_IMAGE:-clamav/clamav:1.5}
+      CLAMAV_DATABASE_MIRROR: ${CLAMAV_DATABASE_MIRROR:-https://packages.microsoft.com/clamav}
     networks:
     - edge
     restart: unless-stopped
