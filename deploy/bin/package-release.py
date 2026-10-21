@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("tag", help="The immutable tag used to build/push this release")
 parser.add_argument("--namespace", default="xjensu", help="Registry namespace used for the build")
 parser.add_argument("--base-tag", help="Tag retained for unchanged scheduler images (defaults to the release tag)")
-for component in ("web", "minio-init", "excel"):
+for component in ("web", "edge", "minio-init", "excel"):
     parser.add_argument(f"--{component}-tag", help="Retain a published tag for this unchanged component")
 args = parser.parse_args()
 if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", args.tag):
@@ -50,6 +50,7 @@ overrides = {key: f"{args.namespace}/{image}:{args.tag}" for key, image in (
     ("EDGE_IMAGE", "table-edge"), ("MINIO_INIT_IMAGE", "table-minio-init"),
     ("EXCEL_IMAGE", "excel-processor"))}
 for argument, key, image in ((args.web_tag, "WEB_IMAGE", "table-bsut-by"),
+                             (args.edge_tag, "EDGE_IMAGE", "table-edge"),
                              (args.minio_init_tag, "MINIO_INIT_IMAGE", "table-minio-init"),
                              (args.excel_tag, "EXCEL_IMAGE", "excel-processor")):
     if argument:

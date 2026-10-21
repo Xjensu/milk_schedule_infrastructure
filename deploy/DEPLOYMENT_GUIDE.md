@@ -1,4 +1,4 @@
-# Deployment guide — release 2026-10-19-1
+# Deployment guide — release 2026-10-21-1
 
 This is the single operational guide for Milk Schedule: installation from zero, updates with existing data, migration from Consul, administrator setup, outage handling, automatic recovery, antivirus, diagnostics and rollback.
 
@@ -14,7 +14,7 @@ Use `Xjensu/milk_schedule_infrastructure`, branch `main`. The server pulls publi
 | Stack already running; verify recovery, scans or diagnose an outage | [D. Recovery and failover](#d-recovery-and-failover), [E. Antivirus](#e-antivirus), [F. Diagnostics](#f-diagnostics). |
 | Normal shutdown/startup or rollback | [G. Stop restart and rollback](#g-stop-restart-and-rollback). |
 
-The exact image set is shown in section A.3 and repeated for safe updating in section B. API/edge use `2026-10-19-1`; Rails/MinIO initialization/Excel use `2026-10-17-1`; scheduler retains `IMAGE_TAG=2026-10-12-1`. Do not set every component to the new tag. [The release manifest](image-releases/2026-10-19-1.json) records immutable application image digests.
+The exact image set is shown in section A.3 and repeated for safe updating in section B. API/Rails use `2026-10-21-1`; edge uses `2026-10-19-1`; MinIO initialization/Excel use `2026-10-17-1`; scheduler retains `IMAGE_TAG=2026-10-12-1`. Do not set every component to the new tag. [The release manifest](image-releases/2026-10-21-1.json) records immutable application image digests.
 
 Deleting containers/images does not necessarily delete named volumes or `storage/redis_data`. New credentials must never be pointed at an old PostgreSQL volume. A fresh installation uses a new directory/project; an update keeps its existing directory/project, secrets and data. No global Docker prune is needed.
 
@@ -59,13 +59,13 @@ Run as your normal deployment user. The destination below must not already exist
 cd "$HOME"
 git clone --branch main --single-branch \
   https://github.com/Xjensu/milk_schedule_infrastructure.git \
-  milk-schedule-clean-20261019
-cd "$HOME/milk-schedule-clean-20261019"
+  milk-schedule-clean-20261021
+cd "$HOME/milk-schedule-clean-20261021"
 git rev-parse HEAD
 test -f deploy/DEPLOYMENT_GUIDE.md
 ```
 
-Use the current `main` branch, which includes the October 19 outage/recovery release. If GitHub requires authentication, use your authorized Git credentials; the SSH equivalent is `git@github.com:Xjensu/milk_schedule_infrastructure.git`.
+Use the current `main` branch, which includes the October 21 administrator workload update and earlier outage/recovery repairs. If GitHub requires authentication, use your authorized Git credentials; the SSH equivalent is `git@github.com:Xjensu/milk_schedule_infrastructure.git`.
 
 No nested `apps/` repositories are needed. The server will pull the five updated images plus their existing dependencies.
 
@@ -86,12 +86,12 @@ import re
 p = Path('.env.local')
 text = p.read_text()
 text = re.sub(r'^COMPOSE_PROJECT_NAME=.*$',
-              'COMPOSE_PROJECT_NAME=milk_schedule_20261019', text, flags=re.M)
+              'COMPOSE_PROJECT_NAME=milk_schedule_20261021', text, flags=re.M)
 p.write_text(text)
 p.chmod(0o600)
 PY
 sudo docker volume ls \
-  --filter label=com.docker.compose.project=milk_schedule_20261019 \
+  --filter label=com.docker.compose.project=milk_schedule_20261021 \
   --format '{{.Name}}'
 ```
 
@@ -106,11 +106,11 @@ nano .env.local
 Verify this release selection:
 
 ```dotenv
-COMPOSE_PROJECT_NAME=milk_schedule_20261019
+COMPOSE_PROJECT_NAME=milk_schedule_20261021
 IMAGE_NAMESPACE=xjensu
 IMAGE_TAG=2026-10-12-1
-WEB_IMAGE=xjensu/table-bsut-by:2026-10-17-1
-API_IMAGE=xjensu/table-api:2026-10-19-1
+WEB_IMAGE=xjensu/table-bsut-by:2026-10-21-1
+API_IMAGE=xjensu/table-api:2026-10-21-1
 EDGE_IMAGE=xjensu/table-edge:2026-10-19-1
 MINIO_INIT_IMAGE=xjensu/table-minio-init:2026-10-17-1
 EXCEL_IMAGE=xjensu/excel-processor:2026-10-17-1
@@ -122,7 +122,7 @@ ASSUME_SSL=false
 FORCE_SSL=false
 ```
 
-`IMAGE_TAG` intentionally remains `2026-10-12-1` for the unchanged scheduler. API and edge use October 19 references; Rails, storage initialization and Excel retain October 17 references. Do not set every image to the new tag: a new scheduler image was not published for this repair. Immutable digests are recorded in [the release manifest](image-releases/2026-10-19-1.json).
+`IMAGE_TAG` intentionally remains `2026-10-12-1` for the unchanged scheduler. API and Rails use October 21 references; edge retains October 19; storage initialization and Excel retain October 17. Do not set every image to the new tag: a new scheduler image was not published for this repair. Immutable digests are recorded in [the release manifest](image-releases/2026-10-21-1.json).
 
 Also review:
 
@@ -296,9 +296,9 @@ Resolve tracked server changes deliberately; do not reset them blindly. Git does
 ```dotenv
 IMAGE_NAMESPACE=xjensu
 IMAGE_TAG=2026-10-12-1
-API_IMAGE=xjensu/table-api:2026-10-19-1
+API_IMAGE=xjensu/table-api:2026-10-21-1
 EDGE_IMAGE=xjensu/table-edge:2026-10-19-1
-WEB_IMAGE=xjensu/table-bsut-by:2026-10-17-1
+WEB_IMAGE=xjensu/table-bsut-by:2026-10-21-1
 MINIO_INIT_IMAGE=xjensu/table-minio-init:2026-10-17-1
 EXCEL_IMAGE=xjensu/excel-processor:2026-10-17-1
 WEB_REPLICAS=1
@@ -322,7 +322,18 @@ Stop on missing/denied images and fix registry access as described in section A.
 
 ### B.4 Apply the update
 
-For the October 19 update from the simplified October 17 deployment, no business migration or seed is required:
+The October 21 update changes department workload processing. Rails now reads the authenticated semester-wide group catalog from the API (`GET /admin/studying_groups?semester_id=…`). Department mode allows groups from all faculties; faculty mode keeps its faculty filter. Both image overrides above must be updated together. New Rails with the old API cannot load the new catalog. There are no new variables, services or database migrations for this update; do not seed existing data.
+
+After B.1–B.3, deploy API first and verify readiness before switching Rails. All API-derived workers use the same API image and are recreated as well:
+
+```bash
+sudo ./deploy/bin/compose.sh up -d --no-build --no-deps --wait --wait-timeout 180 api_geteway
+sudo ./deploy/bin/compose.sh exec -T api_geteway curl -fsS --max-time 10 http://127.0.0.1:2300/readyz
+sudo ./deploy/bin/compose.sh up -d --no-build --no-deps --wait --wait-timeout 180 schedule_web
+sudo ./deploy/bin/compose.sh exec -T schedule_web curl -fsS --max-time 10 http://127.0.0.1:3000/readyz
+```
+
+Stop if either readiness check fails and inspect the service logs. Then reconcile the full stack and host policy:
 
 ```bash
 sudo ./deploy/bin/compose.sh up -d --no-build
@@ -344,6 +355,10 @@ It prepares networking, pulls images, retires old discovery containers, starts d
 If retaining a private antivirus mirror, include `-f deploy/antivirus/compose.mirror.yml` on every applicable Compose create/recreate command as explained in section E. The standard deployment helper does not accept that overlay; use the manual procedure instead. Where migrations are required, start healthy `db redis minio scheduler`, complete `minio_init` as in A.5, then run `sudo ./deploy/bin/db.sh migrate` before starting the full application. Do not seed on upgrades.
 
 ### B.5 Acceptance
+
+For the October 21 administrator update, open department workload, choose a semester containing groups from multiple faculties and confirm the picker says «Учебные группы всех факультетов». Select groups from two faculties for the same authorized department, create a legitimate workload batch and reload to confirm both records persist. Use disposable records in staging or real intended entries in production; do not create fake business data on the server. Faculty workload must still filter by its faculty. Existing department authorization remains in force. A group needs an existing semester instance to appear; this update does not generate groups or semester data.
+
+If the catalog is unavailable, check that both new image overrides are in `.env.local`, inspect API/Rails logs and confirm API readiness. A 404 on the new authenticated catalog route indicates an old API; a 403 indicates missing permissions, and 422 indicates an invalid semester ID. Do not disable authorization.
 
 Repeat the readiness/Nginx checks in A.8 and the timer checks in section D. Sign in using the existing administrator account and verify a normal read/edit/reload workflow. Existing passwords are unchanged. Complete the separate antivirus checks before scanned imports; worker health alone does not prove a full Excel or notice-export journey.
 
@@ -562,7 +577,9 @@ The timer respects intentional stops. Keep its service files enabled for normal 
 
 ### G.2 Roll back the October 19 update
 
-Remove the recovery timer first using D.3. Restore the recorded compatible infrastructure revision and API/edge `2026-10-17-1` overrides together, keeping data and secrets. Pull/recreate services and reapply firewall policy. Revert worker healthchecks together with the API image: October 17 workers do not emit the new heartbeat. This incremental release changes no business schema; an arbitrary future image rollback does not undo database migrations.
+For an October 21 workload rollback to the previously working October 19 stack, keep the current infrastructure and data. Set `WEB_IMAGE=xjensu/table-bsut-by:2026-10-17-1` and `API_IMAGE=xjensu/table-api:2026-10-19-1` in `.env.local`. Pull those images, recreate `schedule_web` first with `--no-deps --wait --wait-timeout 180`, then recreate `api_geteway outbox_relay media_sanitizer notice_export_worker schedule_generation_worker` with the same flags. Verify both `/readyz` endpoints and administrator workload. No database restore is needed for this schema-free update, and previously created workload records remain. Restore forward by deploying API first, then Rails as in B.4. Timers remain installed for this paired application rollback.
+
+For the older October 19 → October 17 recovery-release rollback: Remove the recovery timer first using D.3. Restore the recorded compatible infrastructure revision and API/edge `2026-10-17-1` overrides together, keeping data and secrets. Pull/recreate services and reapply firewall policy. Revert worker healthchecks together with the API image: October 17 workers do not emit the new heartbeat. This incremental release changes no business schema; an arbitrary future image rollback does not undo database migrations.
 
 ### G.3 Roll back a Consul topology migration
 
@@ -585,15 +602,17 @@ It uses independent credentials in `deploy/ops/.env.local` and keeps LAN restric
 Git checkout is the standard server path. On the source workstation, package the exact mixed-version release with:
 
 ```bash
-python3 deploy/bin/package-release.py 2026-10-19-1 \
-  --base-tag 2026-10-12-1 --web-tag 2026-10-17-1 \
+python3 deploy/bin/package-release.py 2026-10-21-1 \
+  --base-tag 2026-10-12-1 --edge-tag 2026-10-19-1 \
   --minio-init-tag 2026-10-17-1 --excel-tag 2026-10-17-1
 ```
 
-The archive contains deployment files, this guide and image manifests; it excludes private credentials and application source. It does not build or publish images. API and edge `2026-10-19-1` are already published. Future releases require publishing compatible source in each owning repository and building/pushing the changed images before updating image references. Never push deployment workspace changes into the unrelated `milk_proto` project.
+The archive contains deployment files, this guide and image manifests; it excludes private credentials and application source. It does not build or publish images. API and Rails `2026-10-21-1` and edge `2026-10-19-1` are published. Future releases require publishing compatible source in each owning repository and building/pushing the changed images before updating image references. Never push deployment workspace changes into the unrelated `milk_proto` project.
 
 ## I. Verification and limits
 
 The October 17 base path was validated on a fresh project through pulls, storage initialization, migrations, seed, administrator login and persisted faculty creation. The October 19 stack additionally passed fresh-database migrations/seeding, all 12 non-antivirus long-running service healthchecks, HTML/JSON outage handling, failed POST safety, mixed healthy/failing Rails replica reads, Docker DNS recovery, restart grace/dependency/cooldown/budget/manual-stop/project-isolation checks and a real unhealthy-container restart. Four workers emitted empty-queue heartbeats; 1000 heartbeat writes did not grow descriptor counts. Generated systemd units passed structural validation. Desktop/mobile Playwright checks covered responsive layout, availability status and safe retry.
 
 These were isolated local checks with synthetic data and alternate ports/container names. Shared application data and firewall policy were not changed; synthetic resources were removed. This consolidation changes documentation/packaging only and does not claim a production deployment, full workbook/notice-export acceptance, live ClamAV CDN updates or a multi-day workload soak. The static page requires a working Nginx; whole-host/ingress/database redundancy needs separate infrastructure.
+
+October 21 update evidence: API `3d0f356` and Rails `b254fe5` were built and exercised locally before publication. Authenticated checks covered administrator roles, forbidden teacher/student access, invalid semester input and unauthorized department writes. Desktop/mobile browser checks created a batch across two faculties and confirmed database persistence; synthetic records were removed. No schema changes. The production server was not accessed or deployed during this release preparation.

@@ -1,6 +1,6 @@
 # Milk Schedule
 
-Current release: **2026-10-19-1**. All deployment instructions are in [one deployment guide](deploy/DEPLOYMENT_GUIDE.md).
+Current release: **2026-10-21-1**. All deployment instructions are in [one deployment guide](deploy/DEPLOYMENT_GUIDE.md).
 
 The application uses a Rails web interface, a Hanami API, Python Excel and scheduling workers, PostgreSQL, Redis, MinIO and Nginx with Compose DNS.
 

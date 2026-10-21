@@ -1,0 +1,43 @@
+{
+  "release": "2026-10-21-1",
+  "infrastructure_branch": "main",
+  "images": {
+    "xjensu/table-minio-init:2026-10-17-1": {
+      "digest": "xjensu/table-minio-init@sha256:ea668a77fe315d14cf5a960ef98cb41c6218ace60bd87268043189c870b8baec",
+      "architecture": "amd64"
+    },
+    "xjensu/excel-processor:2026-10-17-1": {
+      "digest": "xjensu/excel-processor@sha256:9e4f6ed8001f4d75f46c26d1ea200e03410fcdb566804cbc8f47f5d340247a17",
+      "architecture": "amd64"
+    },
+    "xjensu/table-edge:2026-10-19-1": {
+      "digest": "xjensu/table-edge@sha256:de4fce58100d4bd106df781c919b4fb7afc2871ba5196ac727bbbc41ec26cc4b",
+      "architecture": "amd64"
+    },
+    "xjensu/table-api:2026-10-21-1": {
+      "digest": "xjensu/table-api@sha256:022b89b5353b4415a57306c520e85eaf9208a2009fe08986f39a1fc7800390ae",
+      "architecture": "amd64"
+    },
+    "xjensu/table-bsut-by:2026-10-21-1": {
+      "digest": "xjensu/table-bsut-by@sha256:bd6aa9fc5b2922347a27ca4e57029c6df761dfe95a55daf4e0915eba685d59ec",
+      "architecture": "amd64"
+    }
+  },
+  "unchanged_scheduler_image": "xjensu/table-scheduler:2026-10-12-1",
+  "source": {
+    "schedule_web": "b254fe5c2cd90275b8f94329b0011aeabee52100",
+    "api_geteway": "3d0f356ac1f4c682be198392409f0142ca554403",
+    "excel_processor": "deefab66251279101d991d87d8de9d8a923e7dbb"
+  },
+  "schema_changes": false,
+  "new_environment_variables": [],
+  "rollout_order": [
+    "api_geteway",
+    "schedule_web",
+    "API-derived workers"
+  ],
+  "verification": {
+    "local_authenticated_cross_faculty_workload": true,
+    "production_server_deployed": false
+  }
+}

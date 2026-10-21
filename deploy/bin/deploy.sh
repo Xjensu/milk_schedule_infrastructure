@@ -9,6 +9,8 @@ python3 deploy/bin/retire-discovery.py
 deploy/bin/compose.sh up -d --no-build --wait --wait-timeout 120 db redis minio scheduler
 deploy/bin/compose.sh up -d --no-build minio_init
 deploy/bin/db.sh migrate
+# New Rails workload catalog requires the matching API before web recreation.
+deploy/bin/compose.sh up -d --no-build --no-deps --wait --wait-timeout 180 api_geteway
 deploy/bin/compose.sh up -d --no-build
 python3 deploy/bin/install-project-firewall.py
 python3 deploy/bin/install-recovery.py
